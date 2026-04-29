@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/buildingblocks/" />
+  <Folder Name="/src/buildingblocks/Core/">
+    <Project Path="src/buildingblocks/Core/BuildingBlocks.Core.csproj" />
+  </Folder>
+  <Folder Name="/src/buildingblocks/Shared/">
+    <Project Path="src/buildingblocks/Shared/BuildingBlocks.Shared.csproj" />
+  </Folder>
+</Solution>
