@@ -1,108 +1,183 @@
-# 🎯 GIAI ĐOẠN 6: ORDER SERVICE
-## Thời gian: Day 22-28
-## Mục tiêu: Tạo service xử lý đơn hàng với Saga Pattern + RabbitMQ + Polly
+# 🎯 GIAI ĐOẠN 6: ORDER SERVICE (VỚI SAGA PATTERN)
 
 ---
 
-## 📝 TASK 6.1: TẠO 4 LAYER PROJECTS
-
-### Bước 6.1.1: Tạo Domain project
+## Bước 6.1: Tạo OrderService.Domain Project
 
 ```bash
 cd C:\Users\Admin\Desktop\Microservice-Econmmerce
-
-# OrderService.Domain
 dotnet new classlib -n OrderService.Domain -o src/services/order/src/OrderService.Domain
 rm src/services/order/src/OrderService.Domain/Class1.cs
 dotnet sln add src/services/order/src/OrderService.Domain/OrderService.Domain.csproj
 ```
 
-### Bước 6.1.2: Tạo Application project
+> **Giải thích:**
+> - **Domain layer**: Chứa Order aggregate root, OrderItem entity, domain events
+
+---
+
+## Bước 6.2: Tạo OrderService.Application Project
 
 ```bash
-# OrderService.Application
 dotnet new classlib -n OrderService.Application -o src/services/order/src/OrderService.Application
 rm src/services/order/src/OrderService.Application/Class1.cs
 dotnet sln add src/services/order/src/OrderService.Application/OrderService.Application.csproj
 ```
 
-### Bước 6.1.3: Tạo Infrastructure project
+> **Giải thích:**
+> - **Application layer**: Chứa CreateOrderCommand, gRPC client để gọi Product Service
+
+---
+
+## Bước 6.3: Tạo OrderService.Infrastructure Project
 
 ```bash
-# OrderService.Infrastructure
 dotnet new classlib -n OrderService.Infrastructure -o src/services/order/src/OrderService.Infrastructure
 rm src/services/order/src/OrderService.Infrastructure/Class1.cs
 dotnet sln add src/services/order/src/OrderService.Infrastructure/OrderService.Infrastructure.csproj
 ```
 
-### Bước 6.1.4: Tạo Api project
+> **Giải thích:**
+> - **Infrastructure layer**: Chứa EF Core, MassTransit (RabbitMQ), Polly (circuit breaker)
+
+---
+
+## Bước 6.4: Tạo OrderService.Api Project
 
 ```bash
-# OrderService.Api
 dotnet new webapi -n OrderService.Api -o src/services/order/src/OrderService.Api
 dotnet sln add src/services/order/src/OrderService.Api/OrderService.Api.csproj
 ```
 
-### Bước 6.1.5: Add project references
+> **Giải thích:**
+> - **API layer**: REST endpoints cho Order, JWT authorization
+
+---
+
+## Bước 6.5: Add Project References
 
 ```bash
-# Application reference Domain + BuildingBlocks
 dotnet add src/services/order/src/OrderService.Application/OrderService.Application.csproj reference src/services/order/src/OrderService.Domain/OrderService.Domain.csproj
 dotnet add src/services/order/src/OrderService.Application/OrderService.Application.csproj reference src/buildingblocks/Core/BuildingBlocks.Core.csproj
 dotnet add src/services/order/src/OrderService.Application/OrderService.Application.csproj reference src/buildingblocks/Shared/BuildingBlocks.Shared.csproj
 
-# Infrastructure reference Domain + Application + Product gRPC
 dotnet add src/services/order/src/OrderService.Infrastructure/OrderService.Infrastructure.csproj reference src/services/order/src/OrderService.Domain/OrderService.Domain.csproj
 dotnet add src/services/order/src/OrderService.Infrastructure/OrderService.Infrastructure.csproj reference src/services/order/src/OrderService.Application/OrderService.Application.csproj
 dotnet add src/services/order/src/OrderService.Infrastructure/OrderService.Infrastructure.csproj reference src/services/product/src/ProductService.gRPC/ProductService.gRPC.csproj
-dotnet add src/services/order/src/OrderService.Infrastructure/OrderService.Infrastructure.csproj reference src/buildingblocks/Core/BuildingBlocks.Core.csproj
 
-# Api reference Application + Infrastructure
 dotnet add src/services/order/src/OrderService.Api/OrderService.Api.csproj reference src/services/order/src/OrderService.Application/OrderService.Application.csproj
 dotnet add src/services/order/src/OrderService.Api/OrderService.Api.csproj reference src/services/order/src/OrderService.Infrastructure/OrderService.Infrastructure.csproj
 dotnet add src/services/order/src/OrderService.Api/OrderService.Api.csproj reference src/buildingblocks/Core/BuildingBlocks.Core.csproj
 ```
 
+> **Giải thích:**
+> - Infrastructure reference cả Product gRPC (để gọi Product Service)
+> - Api reference Application + Infrastructure
+
 ---
 
-## 📝 TASK 6.2: SETUP DOMAIN ENTITIES
+## Bước 6.6: Update .csproj Files
 
-### Bước 6.2.1: Thêm reference vào Domain
+**OrderService.Domain.csproj:**
 
-```bash
-cd C:\Users\Admin\Desktop\Microservice-Econmmerce\src\services\order\src\OrderService.Domain
-dotnet add reference ../../../../buildingblocks/Core/BuildingBlocks.Core.csproj
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\buildingblocks\Core\BuildingBlocks.Core.csproj" />
+  </ItemGroup>
+</Project>
 ```
 
-### Bước 6.2.2: Tạo Enums
+**OrderService.Application.csproj:**
 
-Tạo file `src/services/order/src/OrderService.Domain/Enums/OrderStatus.cs`:
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\OrderService.Domain\OrderService.Domain.csproj" />
+    <ProjectReference Include="..\..\..\..\buildingblocks\Shared\BuildingBlocks.Shared.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" Version="11.9.0" />
+    <PackageReference Include="MediatR" Version="12.2.0" />
+  </ItemGroup>
+</Project>
+```
+
+**OrderService.Infrastructure.csproj:**
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\OrderService.Domain\OrderService.Domain.csproj" />
+    <ProjectReference Include="..\OrderService.Application\OrderService.Application.csproj" />
+    <ProjectReference Include="..\..\..\..\src\services\product\src\ProductService.gRPC\ProductService.gRPC.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.0" />
+    <PackageReference Include="MassTransit.RabbitMQ" Version="8.0.0" />
+    <PackageReference Include="Polly" Version="8.0.0" />
+    <PackageReference Include="Grpc.Net.Client" Version="2.0.0" />
+  </ItemGroup>
+</Project>
+```
+
+**OrderService.Api.csproj:**
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.0" />
+    <PackageReference Include="MediatR" Version="12.2.0" />
+    <PackageReference Include="Serilog.AspNetCore" Version="8.0.0" />
+    <PackageReference Include="MassTransit.AspNetCore" Version="8.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\OrderService.Application\OrderService.Application.csproj" />
+    <ProjectReference Include="..\OrderService.Infrastructure\OrderService.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\..\buildingblocks\Core\BuildingBlocks.Core.csproj" />
+  </ItemGroup>
+</Project>
+```
+
+> **Giải thích:**
+> - **MassTransit**: Message broker abstraction cho RabbitMQ
+> - **Polly**: Retry và Circuit Breaker pattern
+> - **Grpc.Net.Client**: Để gọi Product Service qua gRPC
+
+---
+
+## Bước 6.7: Tạo Domain Entities
+
+**OrderService.Domain/Enums/OrderStatus.cs:**
 
 ```csharp
 namespace OrderService.Domain.Enums;
 
-public enum OrderStatus
-{
-    Pending = 0,
-    Confirmed = 1,
-    Processing = 2,
-    Shipped = 3,
-    Delivered = 4,
-    Cancelled = 5
-}
-
-public enum PaymentStatus
-{
-    Pending = 0,
-    Paid = 1,
-    Failed = 2,
-    Refunded = 3
-}
+public enum OrderStatus { Pending = 0, Confirmed = 1, Processing = 2, Shipped = 3, Delivered = 4, Cancelled = 5 }
+public enum PaymentStatus { Pending = 0, Paid = 1, Failed = 2, Refunded = 3 }
 ```
 
-### Bước 6.2.3: Tạo OrderItem entity
-
-Tạo file `src/services/order/src/OrderService.Domain/Entities/OrderItem.cs`:
+**OrderService.Domain/Entities/OrderItem.cs:**
 
 ```csharp
 using BuildingBlocks.Core.Abstractions;
@@ -125,22 +200,15 @@ public class OrderItem : Entity<Guid>
 
     public static OrderItem Create(Guid orderId, Guid productId, string productName, decimal unitPrice, int quantity)
     {
-        return new OrderItem
-        {
-            OrderId = orderId,
-            ProductId = productId,
-            ProductName = productName,
-            UnitPrice = unitPrice,
-            Quantity = quantity,
-            CreatedAt = DateTime.UtcNow
-        };
+        return new OrderItem { OrderId = orderId, ProductId = productId, ProductName = productName, UnitPrice = unitPrice, Quantity = quantity, CreatedAt = DateTime.UtcNow };
     }
 }
 ```
 
-### Bước 6.2.4: Tạo Order aggregate root
+> **Giải thích:**
+> - **OrderItem**: Mỗi item trong đơn hàng
 
-Tạo file `src/services/order/src/OrderService.Domain/Entities/Order.cs`:
+**OrderService.Domain/Entities/Order.cs:**
 
 ```csharp
 using BuildingBlocks.Core.Abstractions;
@@ -164,30 +232,14 @@ public class Order : IAggregateRoot
     public string? ShippingPhone { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
-
     public List<OrderItem> Items { get; set; } = new();
 
-    public Order()
-    {
-        Id = Guid.NewGuid();
-    }
+    public Order() { Id = Guid.NewGuid(); }
 
     public static Order Create(string userId, string userEmail, string shippingAddress, string shippingPhone)
     {
-        var order = new Order
-        {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            UserEmail = userEmail,
-            ShippingAddress = shippingAddress,
-            ShippingPhone = shippingPhone,
-            Status = OrderStatus.Pending,
-            PaymentStatus = PaymentStatus.Pending,
-            CreatedAt = DateTime.UtcNow
-        };
-
+        var order = new Order { Id = Guid.NewGuid(), UserId = userId, UserEmail = userEmail, ShippingAddress = shippingAddress, ShippingPhone = shippingPhone, Status = OrderStatus.Pending, PaymentStatus = PaymentStatus.Pending, CreatedAt = DateTime.UtcNow };
         order.AddDomainEvent(new OrderCreatedEvent(order.Id, order.UserId, order.TotalAmount));
-
         return order;
     }
 
@@ -198,44 +250,32 @@ public class Order : IAggregateRoot
         RecalculateTotal();
     }
 
-    public void RecalculateTotal()
-    {
-        TotalAmount = Items.Sum(i => i.TotalPrice);
-    }
+    public void RecalculateTotal() => TotalAmount = Items.Sum(i => i.TotalPrice);
 
-    public void Confirm()
-    {
-        Status = OrderStatus.Confirmed;
-        UpdatedAt = DateTime.UtcNow;
-        AddDomainEvent(new OrderConfirmedEvent(Id));
-    }
+    public void Confirm() { Status = OrderStatus.Confirmed; UpdatedAt = DateTime.UtcNow; AddDomainEvent(new OrderConfirmedEvent(Id)); }
 
-    public void Cancel(string reason)
-    {
-        Status = OrderStatus.Cancelled;
-        UpdatedAt = DateTime.UtcNow;
-        AddDomainEvent(new OrderCancelledEvent(Id, reason));
-    }
+    public void Cancel(string reason) { Status = OrderStatus.Cancelled; UpdatedAt = DateTime.UtcNow; AddDomainEvent(new OrderCancelledEvent(Id, reason)); }
 
-    public void MarkAsPaid()
-    {
-        PaymentStatus = PaymentStatus.Paid;
-        Status = OrderStatus.Processing;
-        UpdatedAt = DateTime.UtcNow;
-    }
+    public void MarkAsPaid() { PaymentStatus = PaymentStatus.Paid; Status = OrderStatus.Processing; UpdatedAt = DateTime.UtcNow; }
 
     public void ClearDomainEvents() => _domainEvents.Clear();
 }
 
-// Domain Events
 public record OrderCreatedEvent(Guid OrderId, string UserId, decimal TotalAmount) : IDomainEvent;
 public record OrderConfirmedEvent(Guid OrderId) : IDomainEvent;
 public record OrderCancelledEvent(Guid OrderId, string Reason) : IDomainEvent;
 ```
 
-### Bước 6.2.5: Tạo IOrderRepository
+> **Giải thích:**
+> - **Order là Aggregate Root**: Tất cả thay đổi phải qua Order
+> - **Domain Events**: Khi có thay đổi, tạo events để notify services khác (Saga pattern)
+> - **AddItem**: Thêm sản phẩm và tự tính tổng tiền
 
-Tạo file `src/services/order/src/OrderService.Domain/Repositories/IOrderRepository.cs`:
+---
+
+## Bước 6.8: Tạo IOrderRepository
+
+Tạo file `OrderService.Domain/Repositories/IOrderRepository.cs`:
 
 ```csharp
 using OrderService.Domain.Entities;
@@ -244,33 +284,22 @@ namespace OrderService.Domain.Repositories;
 
 public interface IOrderRepository
 {
-    Task<Order?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<Order?> GetByIdWithItemsAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<Order>> GetByUserIdAsync(string userId, CancellationToken cancellationToken = default);
-    Task<Order> AddAsync(Order order, CancellationToken cancellationToken = default);
-    Task UpdateAsync(Order order, CancellationToken cancellationToken = default);
+    Task<Order?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    Task<Order?> GetByIdWithItemsAsync(Guid id, CancellationToken ct = default);
+    Task<IReadOnlyList<Order>> GetByUserIdAsync(string userId, CancellationToken ct = default);
+    Task<Order> AddAsync(Order order, CancellationToken ct = default);
+    Task UpdateAsync(Order order, CancellationToken ct = default);
 }
 ```
 
+> **Giải thích:**
+> - Interface cho Order data access
+
 ---
 
-## 📝 TASK 6.3: SETUP INFRASTRUCTURE
+## Bước 6.9: Tạo Infrastructure Layer
 
-### Bước 6.3.1: Thêm packages
-
-```bash
-cd C:\Users\Admin\Desktop\Microservice-Econmmerce\src\services\order\src\OrderService.Infrastructure
-
-dotnet add package Microsoft.EntityFrameworkCore.SqlServer
-dotnet add package Microsoft.EntityFrameworkCore.Design
-dotnet add package MassTransit.RabbitMQ
-dotnet add package Polly
-dotnet add package Grpc.Net.Client
-```
-
-### Bước 6.3.2: Tạo OrderDbContext
-
-Tạo file `src/services/order/src/OrderService.Infrastructure/Persistence/OrderDbContext.cs`:
+**OrderService.Infrastructure/Persistence/OrderDbContext.cs:**
 
 ```csharp
 using OrderService.Domain.Entities;
@@ -280,9 +309,7 @@ namespace OrderService.Infrastructure.Persistence;
 
 public class OrderDbContext : DbContext
 {
-    public OrderDbContext(DbContextOptions<OrderDbContext> options) : base(options)
-    {
-    }
+    public OrderDbContext(DbContextOptions<OrderDbContext> options) : base(options) { }
 
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
@@ -290,35 +317,22 @@ public class OrderDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-
         modelBuilder.Entity<Order>(entity =>
         {
-            entity.ToTable("Orders");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.UserId).HasMaxLength(100).IsRequired();
-            entity.Property(e => e.UserEmail).HasMaxLength(255).IsRequired();
+            entity.ToTable("orders");
             entity.Property(e => e.TotalAmount).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.ShippingAddress).HasMaxLength(500);
-            entity.Property(e => e.ShippingPhone).HasMaxLength(20);
             entity.HasIndex(e => e.UserId);
-            entity.HasIndex(e => e.CreatedAt);
         });
-
         modelBuilder.Entity<OrderItem>(entity =>
         {
-            entity.ToTable("OrderItems");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.ProductName).HasMaxLength(200).IsRequired();
+            entity.ToTable("order_items");
             entity.Property(e => e.UnitPrice).HasColumnType("decimal(18,2)");
-            entity.HasIndex(e => e.OrderId);
         });
     }
 }
 ```
 
-### Bước 6.3.3: Tạo OrderRepository
-
-Tạo file `src/services/order/src/OrderService.Infrastructure/Persistence/Repositories/OrderRepository.cs`:
+**OrderService.Infrastructure/Persistence/Repositories/OrderRepository.cs:**
 
 ```csharp
 using OrderService.Domain.Entities;
@@ -331,62 +345,41 @@ public class OrderRepository : IOrderRepository
 {
     private readonly OrderDbContext _context;
 
-    public OrderRepository(OrderDbContext context)
-    {
-        _context = context;
-    }
+    public OrderRepository(OrderDbContext context) { _context = context; }
 
-    public async Task<Order?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        return await _context.Orders.FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
-    }
+    public async Task<Order?> GetByIdAsync(Guid id, CancellationToken ct = default) 
+        => await _context.Orders.FirstOrDefaultAsync(o => o.Id == id, ct);
 
-    public async Task<Order?> GetByIdWithItemsAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        return await _context.Orders
-            .Include(o => o.Items)
-            .FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
-    }
+    public async Task<Order?> GetByIdWithItemsAsync(Guid id, CancellationToken ct = default) 
+        => await _context.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == id, ct);
 
-    public async Task<IReadOnlyList<Order>> GetByUserIdAsync(string userId, CancellationToken cancellationToken = default)
-    {
-        return await _context.Orders
-            .Include(o => o.Items)
-            .Where(o => o.UserId == userId)
-            .OrderByDescending(o => o.CreatedAt)
-            .ToListAsync(cancellationToken);
-    }
+    public async Task<IReadOnlyList<Order>> GetByUserIdAsync(string userId, CancellationToken ct = default) 
+        => await _context.Orders.Include(o => o.Items).Where(o => o.UserId == userId).OrderByDescending(o => o.CreatedAt).ToListAsync(ct);
 
-    public async Task<Order> AddAsync(Order order, CancellationToken cancellationToken = default)
+    public async Task<Order> AddAsync(Order order, CancellationToken ct = default)
     {
         _context.Orders.Add(order);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _context.SaveChangesAsync(ct);
         return order;
     }
 
-    public async Task UpdateAsync(Order order, CancellationToken cancellationToken = default)
+    public async Task UpdateAsync(Order order, CancellationToken ct = default)
     {
         _context.Orders.Update(order);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _context.SaveChangesAsync(ct);
     }
 }
 ```
 
+> **Giải thích:**
+> - EF Core với PostgreSQL
+> - **Include(o => o.Items)**: Eager load order items
+
 ---
 
-## 📝 TASK 6.4: IMPLEMENT APPLICATION LAYER
+## Bước 6.10: Tạo Application Layer
 
-### Bước 6.4.1: Thêm packages
-
-```bash
-cd C:\Users\Admin\Desktop\Microservice-Econmmerce\src\services\order\src\OrderService.Application
-dotnet add package FluentValidation
-dotnet add package MediatR
-```
-
-### Bước 6.4.2: Tạo DTOs
-
-Tạo file `src/services/order/src/OrderService.Application/DTOs/OrderDtos.cs`:
+**OrderService.Application/DTOs/OrderDtos.cs:**
 
 ```csharp
 namespace OrderService.Application.DTOs;
@@ -396,9 +389,10 @@ public record CreateOrderRequest(string UserId, string UserEmail, string Shippin
 public record OrderDto(Guid Id, string UserId, string UserEmail, string Status, string PaymentStatus, decimal TotalAmount, string? ShippingAddress, List<OrderItemDto> Items, DateTime CreatedAt);
 ```
 
-### Bước 6.4.3: Tạo ProductGrpcClient
+> **Giải thích:**
+> - DTOs cho Order creation và response
 
-Tạo file `src/services/order/src/OrderService.Application/Services/ProductGrpcClient.cs`:
+**OrderService.Application/Services/ProductGrpcClient.cs:**
 
 ```csharp
 using ProductService.gRPC;
@@ -415,10 +409,7 @@ public class ProductGrpcClient : IProductGrpcClient
 {
     private readonly ProductGrpc.ProductGrpcClient _client;
 
-    public ProductGrpcClient(ProductGrpc.ProductGrpcClient client)
-    {
-        _client = client;
-    }
+    public ProductGrpcClient(ProductGrpc.ProductGrpcClient client) { _client = client; }
 
     public async Task<ProductResponse?> GetProductAsync(Guid productId)
     {
@@ -427,34 +418,26 @@ public class ProductGrpcClient : IProductGrpcClient
             var response = await _client.GetProductAsync(new ProductRequest { ProductId = productId.ToString() });
             return response.IsValid ? response : null;
         }
-        catch
-        {
-            return null;
-        }
+        catch { return null; }
     }
 
     public async Task<bool> ReduceStockAsync(Guid productId, int quantity)
     {
         try
         {
-            var response = await _client.ReduceStockAsync(new StockReductionRequest
-            {
-                ProductId = productId.ToString(),
-                Quantity = quantity
-            });
+            var response = await _client.ReduceStockAsync(new StockReductionRequest { ProductId = productId.ToString(), Quantity = quantity });
             return response.Success;
         }
-        catch
-        {
-            return false;
-        }
+        catch { return false; }
     }
 }
 ```
 
-### Bước 6.4.4: Tạo CreateOrderCommand
+> **Giải thích:**
+> - Wrapper cho gRPC call đến Product Service
+> - Try-catch để handle failures gracefully
 
-Tạo file `src/services/order/src/OrderService.Application/Commands/CreateOrderCommand.cs`:
+**OrderService.Application/Commands/CreateOrderCommand.cs:**
 
 ```csharp
 using FluentValidation;
@@ -491,178 +474,69 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Ord
         _productClient = productClient;
     }
 
-    public async Task<OrderDto> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
+    public async Task<OrderDto> Handle(CreateOrderCommand request, CancellationToken ct)
     {
-        var order = Order.Create(
-            request.Request.UserId,
-            request.Request.UserEmail,
-            request.Request.ShippingAddress,
-            request.Request.ShippingPhone
-        );
+        var order = Order.Create(request.Request.UserId, request.Request.UserEmail, request.Request.ShippingAddress, request.Request.ShippingPhone);
 
         foreach (var item in request.Request.Items)
         {
             var product = await _productClient.GetProductAsync(item.ProductId);
-            if (product == null)
-                throw new Exception($"Product {item.ProductId} not found");
-
+            if (product == null) throw new Exception($"Product {item.ProductId} not found");
             order.AddItem(item.ProductId, product.Name, (decimal)product.Price, item.Quantity);
         }
 
-        var createdOrder = await _orderRepository.AddAsync(order, cancellationToken);
+        var createdOrder = await _orderRepository.AddAsync(order, ct);
 
-        // Try to reduce stock
         foreach (var item in request.Request.Items)
         {
             await _productClient.ReduceStockAsync(item.ProductId, item.Quantity);
         }
 
-        return new OrderDto(
-            createdOrder.Id,
-            createdOrder.UserId,
-            createdOrder.UserEmail,
-            createdOrder.Status.ToString(),
-            createdOrder.PaymentStatus.ToString(),
-            createdOrder.TotalAmount,
-            createdOrder.ShippingAddress,
-            createdOrder.Items.Select(i => new OrderItemDto(i.ProductId, i.ProductName, i.UnitPrice, i.Quantity)).ToList(),
-            createdOrder.CreatedAt
-        );
+        return new OrderDto(createdOrder.Id, createdOrder.UserId, createdOrder.UserEmail, createdOrder.Status.ToString(), createdOrder.PaymentStatus.ToString(), createdOrder.TotalAmount, createdOrder.ShippingAddress, createdOrder.Items.Select(i => new OrderItemDto(i.ProductId, i.ProductName, i.UnitPrice, i.Quantity)).ToList(), createdOrder.CreatedAt);
     }
 }
 ```
+
+> **Giải thích:**
+> - **Saga Pattern trong command này**:
+>   1. Lấy thông tin sản phẩm từ Product Service (gRPC)
+>   2. Tạo Order với items
+>   3. Lưu Order vào database
+>   4. Giảm stock trong Product Service (gRPC)
+> - Nếu bước nào fail thì order đã lưu (cần implement compensation)
 
 ---
 
-## 📝 TASK 6.5: SETUP RABBITMQ MESSAGING
+## Bước 6.11: Tạo API Layer
 
-### Bước 6.5.1: Tạo Event Messages
+**OrderService.Api/appsettings.json:**
 
-Tạo file `src/services/order/src/OrderService.Domain/Events/OrderEvents.cs`:
-
-```csharp
-namespace OrderService.Domain.Events;
-
-public record OrderCreatedMessage(Guid OrderId, string UserId, decimal TotalAmount, DateTime CreatedAt);
-public record OrderConfirmedMessage(Guid OrderId, DateTime ConfirmedAt);
-public record OrderCancelledMessage(Guid OrderId, string Reason, DateTime CancelledAt);
-```
-
-### Bước 6.5.2: Tạo Event Publisher
-
-Tạo file `src/services/order/src/OrderService.Infrastructure/Events/OrderEventPublisher.cs`:
-
-```csharp
-using OrderService.Domain.Events;
-using MassTransit;
-
-namespace OrderService.Infrastructure.Events;
-
-public interface IOrderEventPublisher
+```json
 {
-    Task PublishOrderCreatedAsync(OrderCreatedMessage message);
-    Task PublishOrderConfirmedAsync(OrderConfirmedMessage message);
-    Task PublishOrderCancelledAsync(OrderCancelledMessage message);
-}
-
-public class OrderEventPublisher : IOrderEventPublisher
-{
-    private readonly IPublishEndpoint _publishEndpoint;
-
-    public OrderEventPublisher(IPublishEndpoint publishEndpoint)
-    {
-        _publishEndpoint = publishEndpoint;
-    }
-
-    public async Task PublishOrderCreatedAsync(OrderCreatedMessage message)
-    {
-        await _publishEndpoint.Publish(message);
-    }
-
-    public async Task PublishOrderConfirmedAsync(OrderConfirmedMessage message)
-    {
-        await _publishEndpoint.Publish(message);
-    }
-
-    public async Task PublishOrderCancelledAsync(OrderCancelledMessage message)
-    {
-        await _publishEndpoint.Publish(message);
-    }
+  "Logging": { "LogLevel": { "Default": "Information", "Microsoft.AspNetCore": "Warning" } },
+  "AllowedHosts": "*",
+  "ConnectionStrings": { "DefaultConnection": "Host=localhost;Port=5432;Database=orderdb;Username=sa;Password=YourStrong!Passw0rd" },
+  "Urls": "http://0.0.0.0:5003",
+  "Jwt": { "Secret": "ThisIsASecretKeyForJwtTokenGeneration123456", "Issuer": "MicroserviceEcommerce", "Audience": "MicroserviceEcommerce" },
+  "GrpcSettings": { "ProductServiceUrl": "http://localhost:5002" },
+  "RabbitMQ": { "Host": "localhost", "Username": "guest", "Password": "guest" },
+  "Serilog": { "MinimumLevel": { "Default": "Information" }, "WriteTo": [{ "Name": "Console" }] }
 }
 ```
 
----
+> **Giải thích:**
+> - Database: orderdb
+> - Port: 5003
+> - gRPC Product Service URL
+> - RabbitMQ settings cho MassTransit
 
-## 📝 TASK 6.6: SETUP POLLY CIRCUIT BREAKER
-
-### Bước 6.6.1: Tạo ResiliencePolicies
-
-Tạo file `src/services/order/src/OrderService.Infrastructure/Resilience/ResiliencePolicies.cs`:
-
-```csharp
-using Polly;
-using Polly.CircuitBreaker;
-using Polly.Retry;
-using Polly.Wrap;
-
-namespace OrderService.Infrastructure.Resilience;
-
-public static class ResiliencePolicies
-{
-    public static AsyncPolicyWrap<HttpResponseMessage> GetHttpPolicy()
-    {
-        var retryPolicy = Policy
-            .HandleResult<HttpResponseMessage>(r => !r.IsSuccessStatusCode)
-            .Or<HttpRequestException>()
-            .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
-
-        var circuitBreakerPolicy = Policy
-            .HandleResult<HttpResponseMessage>(r => !r.IsSuccessStatusCode)
-            .Or<HttpRequestException>()
-            .CircuitBreakerAsync(5, TimeSpan.FromSeconds(30));
-
-        return Policy.WrapAsync(retryPolicy, circuitBreakerPolicy);
-    }
-
-    public static AsyncPolicy GetGrpcPolicy()
-    {
-        return Policy
-            .Handle<Exception>()
-            .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)))
-            .WrapAsync(
-                Policy
-                    .Handle<Exception>()
-                    .CircuitBreakerAsync(5, TimeSpan.FromSeconds(30))
-            );
-    }
-}
-```
-
----
-
-## 📝 TASK 6.7: SETUP API LAYER
-
-### Bước 6.7.1: Thêm packages
-
-```bash
-cd C:\Users\Admin\Desktop\Microservice-Econmmerce\src\services\order\src\OrderService.Api
-dotnet add package FluentValidation.AspNetCore
-dotnet add package MediatR
-dotnet add package Serilog.AspNetCore
-dotnet add package MassTransit.AspNetCore
-dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer
-```
-
-### Bước 6.7.2: Update Program.cs
-
-Tạo file `src/services/order/src/OrderService.Api/Program.cs`:
+**OrderService.Api/Program.cs:**
 
 ```csharp
 using MassTransit;
 using OrderService.Application.Commands;
 using OrderService.Application.DTOs;
 using OrderService.Application.Services;
-using OrderService.Infrastructure.Events;
 using OrderService.Infrastructure.Persistence;
 using OrderService.Infrastructure.Persistence.Repositories;
 using OrderService.Domain.Repositories;
@@ -680,81 +554,40 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// DbContext
-builder.Services.AddDbContext<OrderDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddDbContext<OrderDbContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// MediatR
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(CreateOrderCommand).Assembly));
 
-// FluentValidation
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateOrderCommand>();
 
-// gRPC Client
-builder.Services.AddGrpcClient<ProductGrpc.ProductGrpcClient>(options =>
-{
-    options.Address = new Uri(builder.Configuration["GrpcSettings:ProductServiceUrl"]!);
-});
+builder.Services.AddGrpcClient<ProductGrpc.ProductGrpcClient>(options => { options.Address = new Uri(builder.Configuration["GrpcSettings:ProductServiceUrl"]!); });
 
-// MassTransit with RabbitMQ
 builder.Services.AddMassTransit(x =>
 {
-    x.UsingRabbitMq((context, cfg) =>
-    {
-        cfg.Host(builder.Configuration["RabbitMQ:Host"], "/", h =>
-        {
-            h.Username(builder.Configuration["RabbitMQ:Username"]!);
-            h.Password(builder.Configuration["RabbitMQ:Password"]!);
-        });
-    });
+    x.UsingRabbitMq((context, cfg) => { cfg.Host(builder.Configuration["RabbitMQ:Host"], "/", h => { h.Username(builder.Configuration["RabbitMQ:Username"]!); h.Password(builder.Configuration["RabbitMQ:Password"]!); }); });
 });
 
-// Register services
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IProductGrpcClient, ProductGrpcClient>();
-builder.Services.AddScoped<IOrderEventPublisher, OrderEventPublisher>();
 
-// JWT Authentication
-builder.Services.AddAuthentication("Bearer")
-    .AddJwtBearer("Bearer", options =>
-    {
-        options.TokenValidationParameters = new()
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Secret"]!))
-        };
-    });
+builder.Services.AddAuthentication("Bearer").AddJwtBearer("Bearer", options =>
+{
+    options.TokenValidationParameters = new() { ValidateIssuer = true, ValidateAudience = true, ValidateLifetime = true, ValidateIssuerSigningKey = true, ValidIssuer = builder.Configuration["Jwt:Issuer"], ValidAudience = builder.Configuration["Jwt:Audience"], IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Secret"]!)) };
+});
 
 builder.Services.AddAuthorization();
 
-// Serilog
-Log.Logger = new LoggerConfiguration()
-    .ReadFrom.Configuration(builder.Configuration)
-    .Enrich.FromLogContext()
-    .CreateLogger();
-
+Log.Logger = new LoggerConfiguration().ReadFrom.Configuration(builder.Configuration).Enrich.FromLogContext().CreateLogger();
 builder.Host.UseSerilog();
 
-// Health Checks
-builder.Services.AddHealthChecks()
-    .AddDbContextCheck<OrderDbContext>("sqlserver");
+builder.Services.AddHealthChecks().AddDbContextCheck<OrderDbContext>("sqlserver");
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+if (app.Environment.IsDevelopment()) { app.UseSwagger(); app.UseSwaggerUI(); }
 
 app.UseSerilogRequestLogging();
-
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -764,54 +597,12 @@ app.MapHealthChecks("/health");
 app.Run();
 ```
 
-### Bước 6.7.3: Tạo appsettings.json
+> **Giải thích:**
+> - **AddGrpcClient**: Đăng ký gRPC client để gọi Product Service
+> - **AddMassTransit**: Enable RabbitMQ messaging
+> - **JwtBearer**: Validate JWT tokens
 
-Tạo file `src/services/order/src/OrderService.Api/appsettings.json`:
-
-```json
-{
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft.AspNetCore": "Warning"
-    }
-  },
-  "AllowedHosts": "*",
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=localhost,1433;Database=OrderDb;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True"
-  },
-  "Urls": "http://0.0.0.0:5003",
-  "Jwt": {
-    "Secret": "ThisIsASecretKeyForJwtTokenGeneration123456",
-    "Issuer": "MicroserviceEcommerce",
-    "Audience": "MicroserviceEcommerce"
-  },
-  "GrpcSettings": {
-    "ProductServiceUrl": "http://localhost:5002"
-  },
-  "RabbitMQ": {
-    "Host": "localhost",
-    "Username": "guest",
-    "Password": "guest"
-  },
-  "Serilog": {
-    "MinimumLevel": {
-      "Default": "Information",
-      "Override": {
-        "Microsoft": "Warning",
-        "System": "Warning"
-      }
-    },
-    "WriteTo": [
-      { "Name": "Console" }
-    ]
-  }
-}
-```
-
-### Bước 6.7.4: Tạo OrdersController
-
-Tạo file `src/services/order/src/OrderService.Api/Controllers/OrdersController.cs`:
+**OrderService.Api/Controllers/OrdersController.cs:**
 
 ```csharp
 using MediatR;
@@ -831,18 +622,13 @@ public class OrdersController : ControllerBase
     private readonly IMediator _mediator;
     private readonly IOrderRepository _orderRepository;
 
-    public OrdersController(IMediator mediator, IOrderRepository orderRepository)
-    {
-        _mediator = mediator;
-        _orderRepository = orderRepository;
-    }
+    public OrdersController(IMediator mediator, IOrderRepository orderRepository) { _mediator = mediator; _orderRepository = orderRepository; }
 
     [HttpPost]
     public async Task<ActionResult<OrderDto>> Create([FromBody] CreateOrderRequest request)
     {
         var userId = User.FindFirst("sub")?.Value ?? request.UserId;
         var userEmail = User.FindFirst("email")?.Value ?? request.UserEmail;
-
         var orderWithUser = request with { UserId = userId, UserEmail = userEmail };
         var result = await _mediator.Send(new CreateOrderCommand(orderWithUser));
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
@@ -853,14 +639,7 @@ public class OrdersController : ControllerBase
     {
         var order = await _orderRepository.GetByIdWithItemsAsync(id);
         if (order == null) return NotFound();
-
-        return Ok(new OrderDto(
-            order.Id, order.UserId, order.UserEmail,
-            order.Status.ToString(), order.PaymentStatus.ToString(),
-            order.TotalAmount, order.ShippingAddress,
-            order.Items.Select(i => new OrderItemDto(i.ProductId, i.ProductName, i.UnitPrice, i.Quantity)).ToList(),
-            order.CreatedAt
-        ));
+        return Ok(new OrderDto(order.Id, order.UserId, order.UserEmail, order.Status.ToString(), order.PaymentStatus.ToString(), order.TotalAmount, order.ShippingAddress, order.Items.Select(i => new OrderItemDto(i.ProductId, i.ProductName, i.UnitPrice, i.Quantity)).ToList(), order.CreatedAt));
     }
 
     [HttpGet("my-orders")]
@@ -868,76 +647,56 @@ public class OrdersController : ControllerBase
     {
         var userId = User.FindFirst("sub")?.Value;
         if (string.IsNullOrEmpty(userId)) return Unauthorized();
-
         var orders = await _orderRepository.GetByUserIdAsync(userId);
-
-        return Ok(orders.Select(o => new OrderDto(
-            o.Id, o.UserId, o.UserEmail,
-            o.Status.ToString(), o.PaymentStatus.ToString(),
-            o.TotalAmount, o.ShippingAddress,
-            o.Items.Select(i => new OrderItemDto(i.ProductId, i.ProductName, i.UnitPrice, i.Quantity)).ToList(),
-            o.CreatedAt
-        )).ToList());
+        return Ok(orders.Select(o => new OrderDto(o.Id, o.UserId, o.UserEmail, o.Status.ToString(), o.PaymentStatus.ToString(), o.TotalAmount, o.ShippingAddress, o.Items.Select(i => new OrderItemDto(i.ProductId, i.ProductName, i.UnitPrice, i.Quantity)).ToList(), o.CreatedAt)).ToList());
     }
 }
 ```
 
+> **Giải thích:**
+> - **[Authorize]**: Yêu cầu đăng nhập
+> - **GetMyOrders**: Lấy orders của user hiện tại (từ JWT claims)
+
 ---
 
-## 📝 TASK 6.8: CREATE MIGRATION VÀ BUILD
-
-### Bước 6.8.1: Create migration
+## Bước 6.12: Tạo Database và Build
 
 ```bash
-cd C:\Users\Admin\Desktop\Microservice-Econmmerce\src\services\order\src\OrderService.Api
+# Tạo database
+docker exec -it ecommerce_postgres psql -U sa -d postgres -c "CREATE DATABASE orderdb;"
+
+# Build
+dotnet build src/services/order/src/OrderService.Api/OrderService.Api.csproj
+
+# Migration
+cd src/services/order/src/OrderService.Api
 dotnet ef migrations add InitialCreate --output-dir ../OrderService.Infrastructure/Persistence/Migrations
+dotnet ef database update
 ```
 
-### Bước 6.8.2: Build solution
-
-```bash
-cd C:\Users\Admin\Desktop\Microservice-Econmmerce
-dotnet build
-```
+> **Giải thích:**
+> - Tạo database riêng cho Order Service
+> - Build và tạo tables
 
 ---
 
 ## ✅ CHECKLIST GIAI ĐOẠN 6
 
-| Task | Status | Ghi chú |
-|------|--------|---------|
-| 6.1.1 | ⬜ | Tạo Domain project |
-| 6.1.2 | ⬜ | Tạo Application project |
-| 6.1.3 | ⬜ | Tạo Infrastructure project |
-| 6.1.4 | ⬜ | Tạo Api project |
-| 6.1.5 | ⬜ | Add project references |
-| 6.2.1 | ⬜ | Add reference vào Domain |
-| 6.2.2 | ⬜ | Tạo Enums |
-| 6.2.3 | ⬜ | Tạo OrderItem entity |
-| 6.2.4 | ⬜ | Tạo Order aggregate root |
-| 6.2.5 | ⬜ | Tạo IOrderRepository |
-| 6.3.1 | ⬜ | Thêm packages Infrastructure |
-| 6.3.2 | ⬜ | Tạo OrderDbContext |
-| 6.3.3 | ⬜ | Tạo OrderRepository |
-| 6.4.1 | ⬜ | Thêm packages Application |
-| 6.4.2 | ⬜ | Tạo DTOs |
-| 6.4.3 | ⬜ | Tạo ProductGrpcClient |
-| 6.4.4 | ⬜ | Tạo CreateOrderCommand |
-| 6.5.1 | ⬜ | Tạo Event Messages |
-| 6.5.2 | ⬜ | Tạo Event Publisher |
-| 6.6.1 | ⬜ | Tạo ResiliencePolicies |
-| 6.7.1 | ⬜ | Thêm packages Api |
-| 6.7.2 | ⬜ | Update Program.cs |
-| 6.7.3 | ⬜ | Tạo appsettings.json |
-| 6.7.4 | ⬜ | Tạo OrdersController |
-| 6.8.1 | ⬜ | Create migration |
-| 6.8.2 | ⬜ | Build solution |
+| Task | Mô tả | Status |
+|------|-------|--------|
+| 6.1-6.4 | Tạo 4 projects | ⬜ |
+| 6.5 | Add references | ⬜ |
+| 6.6 | Update .csproj | ⬜ |
+| 6.7-6.8 | Domain layer | ⬜ |
+| 6.9 | Infrastructure layer | ⬜ |
+| 6.10 | Application layer | ⬜ |
+| 6.11 | API layer | ⬜ |
+| 6.12 | Database & Build | ⬜ |
 
 ---
 
 ## ❓ KHI HOÀN THÀNH
 
-Khi tất cả tasks hoàn thành, reply:
-> **"Done Phase 6"**
+Reply: **"Done Phase 6"**
 
-Tôi sẽ hướng dẫn tiếp **Giai đoạn 7: Dockerization & CI/CD**
+Tôi sẽ hướng dẫn tiếp **Giai đoạn 7: Docker + CI/CD**

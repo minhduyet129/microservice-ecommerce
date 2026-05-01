@@ -1,86 +1,213 @@
-# 🎯 GIAI ĐOẠN 3: IDENTITY SERVICE
-## Thời gian: Day 7-12
-## Mục tiêu: Tạo service xác thực và quản lý người dùng
+# 🎯 GIAI ĐOẠN 3: IDENTITY SERVICE (AUTHENTICATION & AUTHORIZATION)
 
 ---
 
-## 📝 TASK 3.1: TẠO 4 LAYER PROJECTS
-
-### Bước 3.1.1: Tạo Domain project
+## Bước 3.1: Tạo IdentityService.Domain Project
 
 ```bash
 cd C:\Users\Admin\Desktop\Microservice-Econmmerce
-
-# IdentityService.Domain
 dotnet new classlib -n IdentityService.Domain -o src/services/identity/src/IdentityService.Domain
 rm src/services/identity/src/IdentityService.Domain/Class1.cs
-
-# Add to solution
 dotnet sln add src/services/identity/src/IdentityService.Domain/IdentityService.Domain.csproj
 ```
 
-### Bước 3.1.2: Tạo Application project
+> **Giải thích:**
+> - **Domain layer**: Chứa business logic và rules, không phụ thuộc gì cả
+> - **IdentityService.Domain**: Chứa User entity, UserRole entity, interfaces
+> - Mỗi service đều có Domain project riêng
+
+---
+
+## Bước 3.2: Tạo IdentityService.Application Project
 
 ```bash
-# IdentityService.Application
 dotnet new classlib -n IdentityService.Application -o src/services/identity/src/IdentityService.Application
 rm src/services/identity/src/IdentityService.Application/Class1.cs
-
 dotnet sln add src/services/identity/src/IdentityService.Application/IdentityService.Application.csproj
 ```
 
-### Bước 3.1.3: Tạo Infrastructure project
+> **Giải thích:**
+> - **Application layer**: Chứa use cases (Commands và Queries theo CQRS pattern)
+> - **IdentityService.Application**: Chứa RegisterCommand, LoginQuery, validators
+
+---
+
+## Bước 3.3: Tạo IdentityService.Infrastructure Project
 
 ```bash
-# IdentityService.Infrastructure
 dotnet new classlib -n IdentityService.Infrastructure -o src/services/identity/src/IdentityService.Infrastructure
 rm src/services/identity/src/IdentityService.Infrastructure/Class1.cs
-
 dotnet sln add src/services/identity/src/IdentityService.Infrastructure/IdentityService.Infrastructure.csproj
 ```
 
-### Bước 3.1.4: Tạo Api project (Web API)
+> **Giải thích:**
+> - **Infrastructure layer**: Chứa implementations (EF Core, repositories)
+> - **IdentityService.Infrastructure**: Chứa AppDbContext, UserRepository implementation
+
+---
+
+## Bước 3.4: Tạo IdentityService.Api Project
 
 ```bash
-# IdentityService.Api
 dotnet new webapi -n IdentityService.Api -o src/services/identity/src/IdentityService.Api
-
 dotnet sln add src/services/identity/src/IdentityService.Api/IdentityService.Api.csproj
 ```
 
-### Bước 3.1.5: Add project references
+> **Giải thích:**
+> - **Web API project**: Entry point của service, nhận HTTP requests
+> - **IdentityService.Api**: Controllers, Middleware, Swagger, Health checks
+
+---
+
+## Bước 3.5: Add Project References
 
 ```bash
-# Application reference Domain
 dotnet add src/services/identity/src/IdentityService.Application/IdentityService.Application.csproj reference src/services/identity/src/IdentityService.Domain/IdentityService.Domain.csproj
 
-# Infrastructure reference Domain + Application
+dotnet add src/services/identity/src/IdentityService.Application/IdentityService.Application.csproj reference src/buildingblocks/Shared/BuildingBlocks.Shared.csproj
+
 dotnet add src/services/identity/src/IdentityService.Infrastructure/IdentityService.Infrastructure.csproj reference src/services/identity/src/IdentityService.Domain/IdentityService.Domain.csproj
 dotnet add src/services/identity/src/IdentityService.Infrastructure/IdentityService.Infrastructure.csproj reference src/services/identity/src/IdentityService.Application/IdentityService.Application.csproj
 dotnet add src/services/identity/src/IdentityService.Infrastructure/IdentityService.Infrastructure.csproj reference src/buildingblocks/Core/BuildingBlocks.Core.csproj
 dotnet add src/services/identity/src/IdentityService.Infrastructure/IdentityService.Infrastructure.csproj reference src/buildingblocks/Shared/BuildingBlocks.Shared.csproj
 
-# Api reference Application + Infrastructure + BuildingBlocks
 dotnet add src/services/identity/src/IdentityService.Api/IdentityService.Api.csproj reference src/services/identity/src/IdentityService.Application/IdentityService.Application.csproj
 dotnet add src/services/identity/src/IdentityService.Api/IdentityService.Api.csproj reference src/services/identity/src/IdentityService.Infrastructure/IdentityService.Infrastructure.csproj
 dotnet add src/services/identity/src/IdentityService.Api/IdentityService.Api.csproj reference src/buildingblocks/Core/BuildingBlocks.Core.csproj
 dotnet add src/services/identity/src/IdentityService.Api/IdentityService.Api.csproj reference src/buildingblocks/Shared/BuildingBlocks.Shared.csproj
 ```
 
+> **Giải thích:**
+> - **Clean Architecture rule**: Mỗi layer chỉ reference layer bên dưới
+> - Application → Domain (biết business logic)
+> - Infrastructure → Domain + Application (biết implementation)
+> - Api → Application + Infrastructure (nhận requests và gọi handlers)
+
 ---
 
-## 📝 TASK 3.2: SETUP DOMAIN ENTITIES
+## Bước 3.6: Update .csproj Files với Packages và Target Framework
 
-### Bước 3.2.1: Thêm packages vào Domain
+Mở và update `IdentityService.Domain.csproj`:
 
-```bash
-cd C:\Users\Admin\Desktop\Microservice-Econmmerce\src\services\identity\src\IdentityService.Domain
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
 
-# Thêm reference tới BuildingBlocks.Core
-dotnet add reference ../../../../buildingblocks/Core/BuildingBlocks.Core.csproj
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\buildingblocks\Core\BuildingBlocks.Core.csproj" />
+  </ItemGroup>
+
+</Project>
 ```
 
-### Bước 3.2.2: Tạo User entity
+Mở và update `IdentityService.Application.csproj`:
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\IdentityService.Domain\IdentityService.Domain.csproj" />
+    <ProjectReference Include="..\..\..\..\buildingblocks\Shared\BuildingBlocks.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" Version="11.9.0" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="11.9.0" />
+    <PackageReference Include="MediatR" Version="12.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="8.0.0" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.3.1" />
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.0" />
+  </ItemGroup>
+
+</Project>
+```
+
+Mở và update `IdentityService.Infrastructure.csproj`:
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\IdentityService.Domain\IdentityService.Domain.csproj" />
+    <ProjectReference Include="..\IdentityService.Application\IdentityService.Application.csproj" />
+    <ProjectReference Include="..\..\..\..\buildingblocks\Core\BuildingBlocks.Core.csproj" />
+    <ProjectReference Include="..\..\..\..\buildingblocks\Shared\BuildingBlocks.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.0" />
+  </ItemGroup>
+
+</Project>
+```
+
+Mở và update `IdentityService.Api.csproj`:
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+    <PackageReference Include="Serilog.AspNetCore" Version="8.0.0" />
+    <PackageReference Include="AspNetCore.HealthChecks.NpgSql" Version="8.0.0" />
+    <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.0" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\IdentityService.Application\IdentityService.Application.csproj" />
+    <ProjectReference Include="..\IdentityService.Infrastructure\IdentityService.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\..\buildingblocks\Core\BuildingBlocks.Core.csproj" />
+    <ProjectReference Include="..\..\..\..\buildingblocks\Shared\BuildingBlocks.Shared.csproj" />
+  </ItemGroup>
+
+</Project>
+```
+
+> **Giải thích:**
+> - **TargetFramework net8.0**: .NET 8.0 LTS (Long Term Support)
+> - **FluentValidation**: Validate input data (email format, password length)
+> - **MediatR**: CQRS pattern - tách command/query khỏi controller
+> - **BCrypt.Net-Next**: Hash password an toàn (không lưu plaintext)
+> - **JwtBearer**: Validate và generate JWT tokens
+> - **Npgsql**: PostgreSQL provider cho Entity Framework
+> - **Swashbuckle**: Tự động tạo Swagger documentation
+> - **Serilog**: Structured logging thay cho Console.WriteLine
+> - **HealthChecks**: Endpoint để load balancer kiểm tra service health
+
+---
+
+## Bước 3.7: Tạo User Entity (Domain Layer)
 
 Tạo file `src/services/identity/src/IdentityService.Domain/Entities/User.cs`:
 
@@ -129,7 +256,15 @@ public class User : Entity<Guid>
 }
 ```
 
-### Bước 3.2.3: Tạo UserRole entity
+> **Giải thích:**
+> - **Entity<Guid>**: Base class từ BuildingBlocks.Core, có Id là Guid
+> - **Factory method Create()**: Tạo user mới với defaults
+> - **Business methods**: UpdateLastLogin, Deactivate - encapsulate logic trong entity
+> - **PasswordHash**: Lưu hashed password, KHÔNG BAO GIỜ lưu plaintext
+
+---
+
+## Bước 3.8: Tạo UserRole Entity (Domain Layer)
 
 Tạo file `src/services/identity/src/IdentityService.Domain/Entities/UserRole.cs`:
 
@@ -160,7 +295,13 @@ public class UserRole : Entity<Guid>
 }
 ```
 
-### Bước 3.2.4: Tạo UserRepository interface
+> **Giải thích:**
+> - **UserRole**: Lưu roles của user (Admin, User, Manager, etc.)
+> - 1 user có thể có nhiều roles
+
+---
+
+## Bước 3.9: Tại tạo IUserRepository Interface (Domain Layer)
 
 Tạo file `src/services/identity/src/IdentityService.Domain/Repositories/IUserRepository.cs`:
 
@@ -178,22 +319,14 @@ public interface IUserRepository
 }
 ```
 
+> **Giải thích:**
+> - **Interface trong Domain**: Định nghĩa contract, không biết implementation
+> - Implementation sẽ ở Infrastructure layer
+> - **Repository pattern**: Tách data access khỏi business logic
+
 ---
 
-## 📝 TASK 3.3: SETUP EF CORE DBCONTEXT
-
-### Bước 3.3.1: Thêm packages vào Infrastructure
-
-```bash
-cd C:\Users\Admin\Desktop\Microservice-Econmmerce\src\services\identity\src\IdentityService.Infrastructure
-
-dotnet add package Microsoft.EntityFrameworkCore.SqlServer
-dotnet add package Microsoft.EntityFrameworkCore.Design
-dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer
-dotnet add package BCrypt.Net-Next
-```
-
-### Bước 3.3.2: Tạo AppDbContext
+## Bước 3.10: Tạo AppDbContext (Infrastructure Layer)
 
 Tạo file `src/services/identity/src/IdentityService.Infrastructure/Persistence/AppDbContext.cs`:
 
@@ -218,7 +351,7 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<User>(entity =>
         {
-            entity.ToTable("Users");
+            entity.ToTable("users");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Email).HasMaxLength(255).IsRequired();
             entity.Property(e => e.PasswordHash).HasMaxLength(255).IsRequired();
@@ -229,7 +362,7 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<UserRole>(entity =>
         {
-            entity.ToTable("UserRoles");
+            entity.ToTable("user_roles");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.RoleName).HasMaxLength(50).IsRequired();
             entity.HasIndex(e => new { e.UserId, e.RoleName }).IsUnique();
@@ -238,7 +371,15 @@ public class AppDbContext : DbContext
 }
 ```
 
-### Bước 3.3.3: Tạo UserRepository implementation
+> **Giải thích:**
+> - **DbContext**: Cửa ngõ để truy cập database
+> - **DbSet<User>**: Represents bảng users
+> - **ToTable("users")**: PostgreSQL convention dùng snake_case
+> - **HasIndex().IsUnique()**: Email không được trùng
+
+---
+
+## Bước 3.11: Tạo UserRepository Implementation (Infrastructure Layer)
 
 Tạo file `src/services/identity/src/IdentityService.Infrastructure/Persistence/Repositories/UserRepository.cs`:
 
@@ -282,56 +423,14 @@ public class UserRepository : IUserRepository
 }
 ```
 
-### Bước 3.3.4: Tạo DatabaseSeeder
-
-Tạo file `src/services/identity/src/IdentityService.Infrastructure/Persistence/Seed/DatabaseSeeder.cs`:
-
-```csharp
-using IdentityService.Domain.Entities;
-using Microsoft.EntityFrameworkCore;
-
-namespace IdentityService.Infrastructure.Persistence.Seed;
-
-public static class DatabaseSeeder
-{
-    public static async Task SeedAsync(AppDbContext context)
-    {
-        if (!await context.Users.AnyAsync())
-        {
-            var adminUser = User.Create(
-                email: "admin@ecommerce.com",
-                passwordHash: BCrypt.Net.BCrypt.HashPassword("Admin123!"),
-                fullName: "Administrator",
-                phoneNumber: "+1234567890"
-            );
-
-            context.Users.Add(adminUser);
-
-            var adminRole = UserRole.Create(adminUser.Id, "Admin");
-            var userRole = UserRole.Create(adminUser.Id, "User");
-
-            context.UserRoles.AddRange(adminRole, userRole);
-
-            await context.SaveChangesAsync();
-        }
-    }
-}
-```
+> **Giải thích:**
+> - **Implement IUserRepository**: Cụ thể hóa interface
+> - **FirstOrDefaultAsync**: Lấy first record hoặc null
+> - **AnyAsync**: Kiểm tra có tồn tại không
 
 ---
 
-## 📝 TASK 3.4: IMPLEMENT APPLICATION LAYER
-
-### Bước 3.4.1: Thêm packages vào Application
-
-```bash
-cd C:\Users\Admin\Desktop\Microservice-Econmmerce\src\services\identity\src\IdentityService.Application
-
-dotnet add package FluentValidation
-dotnet add package MediatR
-```
-
-### Bước 3.4.2: Tạo DTOs
+## Bước 3.12: Tạo DTOs (Application Layer)
 
 Tạo file `src/services/identity/src/IdentityService.Application/DTOs/AuthDtos.cs`:
 
@@ -343,7 +442,16 @@ public record LoginRequest(string Email, string Password);
 public record AuthResponse(string Token, string Email, string FullName, List<string> Roles);
 ```
 
-### Bước 3.4.3: Tạo RegisterCommand
+> **Giải thích:**
+> - **DTO**: Data Transfer Object - truyền data giữa layers
+> - **record**: C# immutable type, tự generate Equals()
+> - **RegisterRequest**: Input để đăng ký
+> - **LoginRequest**: Input để đăng nhập  
+> - **AuthResponse**: Output - chứa JWT token
+
+---
+
+## Bước 3.13: Tạo RegisterCommand (Application Layer)
 
 Tạo file `src/services/identity/src/IdentityService.Application/Commands/RegisterCommand.cs`:
 
@@ -398,7 +506,16 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, AuthRespo
 }
 ```
 
-### Bước 3.4.4: Tạo LoginQuery
+> **Giải thích:**
+> - **Command Pattern**: Represent một action (register user)
+> - **IRequest<AuthResponse>**: Command trả về AuthResponse
+> - **AbstractValidator**: FluentValidation rule
+> - **BCrypt.HashPassword()**: Hash password trước khi lưu (SECURITY!)
+> - **MediatR**: Dispatch command đến handler tương ứng
+
+---
+
+## Bước 3.14: Tạo LoginQuery (Application Layer)
 
 Tạo file `src/services/identity/src/IdentityService.Application/Queries/LoginQuery.cs`:
 
@@ -406,6 +523,8 @@ Tạo file `src/services/identity/src/IdentityService.Application/Queries/LoginQ
 using IdentityService.Application.DTOs;
 using IdentityService.Domain.Repositories;
 using MediatR;
+using FluentValidation;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -482,99 +601,16 @@ public class LoginQueryHandler : IRequestHandler<LoginQuery, AuthResponse>
 }
 ```
 
+> **Giải thích:**
+> - **Query Pattern**: Represent một câu hỏi (get user by email)
+> - **BCrypt.Verify()**: So sánh password input với hash trong database
+> - **JwtSecurityToken**: Tạo JWT token chứa user info
+> - **Claims**: Thông tin được encode trong token (userId, email, role)
+> - **Token expiry**: 24 hours
+
 ---
 
-## 📝 TASK 3.5: SETUP API LAYER
-
-### Bước 3.5.1: Update Program.cs
-
-Đọc file hiện tại `src/services/identity/src/IdentityService.Api/Program.cs`:
-
-```bash
-cat src/services/identity/src/IdentityService.Api/Program.cs
-```
-
-Sau đó thay thế bằng:
-
-```csharp
-using IdentityService.Application.Commands;
-using IdentityService.Application.Queries;
-using IdentityService.Infrastructure.Persistence;
-using IdentityService.Infrastructure.Persistence.Repositories;
-using IdentityService.Domain.Repositories;
-using FluentValidation;
-using FluentValidation.AspNetCore;
-using MediatR;
-using Microsoft.EntityFrameworkCore;
-using Serilog;
-
-var builder = WebApplication.CreateBuilder(args);
-
-// Add services to the container.
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-// DbContext
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-// MediatR
-builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(RegisterCommand).Assembly));
-
-// FluentValidation
-builder.Services.AddFluentValidationAutoValidation();
-builder.Services.AddValidatorsFromAssemblyContaining<RegisterCommand>();
-
-// JWT Authentication
-builder.Services.AddAuthentication("Bearer")
-    .AddJwtBearer("Bearer", options =>
-    {
-        options.TokenValidationParameters = new()
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Secret"]!))
-        };
-    });
-
-builder.Services.AddAuthorization();
-
-// Serilog
-Log.Logger = new LoggerConfiguration()
-    .ReadFrom.Configuration(builder.Configuration)
-    .Enrich.FromLogContext()
-    .CreateLogger();
-
-builder.Host.UseSerilog();
-
-// Register services
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-
-var app = builder.Build();
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
-app.UseSerilogRequestLogging();
-
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.MapControllers();
-
-app.Run();
-```
-
-### Bước 3.5.2: Tạo appsettings.json
+## Bước 3.15: Tạo appsettings.json (Api Layer)
 
 Tạo file `src/services/identity/src/IdentityService.Api/appsettings.json`:
 
@@ -588,7 +624,7 @@ Tạo file `src/services/identity/src/IdentityService.Api/appsettings.json`:
   },
   "AllowedHosts": "*",
   "ConnectionStrings": {
-    "DefaultConnection": "Server=localhost,1433;Database=IdentityDb;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True"
+    "DefaultConnection": "Host=localhost;Port=5432;Database=postgres;Username=sa;Password=YourStrong!Passw0rd"
   },
   "Jwt": {
     "Secret": "ThisIsASecretKeyForJwtTokenGeneration123456",
@@ -611,7 +647,107 @@ Tạo file `src/services/identity/src/IdentityService.Api/appsettings.json`:
 }
 ```
 
-### Bước 3.5.3: Tạo AuthController
+> **Giải thích:**
+> - **ConnectionStrings**: PostgreSQL connection string (Host=localhost, Port=5432)
+> - **Jwt**: Settings để generate và validate tokens
+> - **Secret**: Key để sign tokens - trong production phải store trong secret manager
+> - **Serilog**: Logging configuration
+
+---
+
+## Bước 3.16: Tạo Program.cs (Api Layer)
+
+Tạo file `src/services/identity/src/IdentityService.Api/Program.cs`:
+
+```csharp
+using IdentityService.Application.Commands;
+using IdentityService.Application.Queries;
+using IdentityService.Infrastructure.Persistence;
+using IdentityService.Infrastructure.Persistence.Repositories;
+using IdentityService.Domain.Repositories;
+using FluentValidation;
+using FluentValidation.AspNetCore;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Serilog;
+using System.Text;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(RegisterCommand).Assembly));
+
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<RegisterCommand>();
+
+builder.Services.AddAuthentication("Bearer")
+    .AddJwtBearer("Bearer", options =>
+    {
+        options.TokenValidationParameters = new()
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Secret"]!))
+        };
+    });
+
+builder.Services.AddAuthorization();
+
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .Enrich.FromLogContext()
+    .CreateLogger();
+
+builder.Host.UseSerilog();
+
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+
+builder.Services.AddHealthChecks()
+    .AddCheck("self", () => HealthCheckResult.Healthy("Identity Service is running"))
+    .AddDbContextCheck<AppDbContext>("postgresql");
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseSerilogRequestLogging();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
+```
+
+> **Giải thích:**
+> - **AddDbContext**: Đăng ký EF Core DbContext với DI container
+> - **UseNpgsql**: Dùng PostgreSQL provider thay vì SQL Server
+> - **AddMediatR**: Tìm và register tất cả handlers trong assembly
+> - **AddFluentValidationAutoValidation**: Tự động validate input
+> - **AddAuthentication("Bearer")**: Enable JWT authentication
+> - **UseSerilog**: Thay thế default logging bằng Serilog
+> - **AddHealthChecks**: Endpoint /health cho load balancer
+
+---
+
+## Bước 3.17: Tạo AuthController (Api Layer)
 
 Tạo file `src/services/identity/src/IdentityService.Api/Controllers/AuthController.cs`:
 
@@ -651,107 +787,82 @@ public class AuthController : ControllerBase
 }
 ```
 
-### Bước 3.5.4: Tạo Health Check
-
-Tạo file `src/services/identity/src/IdentityService.Api/HealthChecks/DbHealthCheck.cs`:
-
-```csharp
-using Microsoft.Extensions.Diagnostics.HealthChecks;
-using System.Data.SqlClient;
-
-namespace IdentityService.Api.HealthChecks;
-
-public class SqlServerHealthCheck : IHealthCheck
-{
-    private readonly string _connectionString;
-
-    public SqlServerHealthCheck(IConfiguration configuration)
-    {
-        _connectionString = configuration.GetConnectionString("DefaultConnection")!;
-    }
-
-    public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            using var connection = new SqlConnection(_connectionString);
-            await connection.OpenAsync(cancellationToken);
-            return HealthCheckResult.Healthy("SQL Server is healthy");
-        }
-        catch (Exception ex)
-        {
-            return HealthCheckResult.Unhealthy("SQL Server is unhealthy", ex);
-        }
-    }
-}
-```
-
-### Bước 3.5.5: Update Program.cs thêm Health Checks
-
-Thêm vào Program.cs (sau phần builder.Services):
-
-```csharp
-builder.Services.AddHealthChecks()
-    .AddCheck("self", () => HealthCheckResult.Healthy("Identity Service is running"))
-    .AddDbContextCheck<AppDbContext>("sqlserver");
-```
+> **Giải thích:**
+> - **ApiController**: Tự động validate model, return 400 nếu invalid
+> - **Route("api/[controller]")**: URL = /api/auth
+> - **[HttpPost]**: Handle POST requests
+> - **MediatR.Send()**: Gửi command/query đến handler tương ứng
 
 ---
 
-## 📝 TASK 3.6: TẠO MIGRATION VÀ DATABASE
-
-### Bước 3.6.1: Add EF Core tools
+## Bước 3.18: Tạo Database và Chạy Migration
 
 ```bash
-dotnet tool install --global dotnet-ef
+# Tạo database trong PostgreSQL
+docker exec -it ecommerce_postgres psql -U sa -d postgres -c "CREATE DATABASE identitydb;"
 ```
 
-### Bước 3.6.2: Tạo Migration
+> **Giải thích:**
+> - Tạo database riêng cho Identity service
+> - Mỗi service có database riêng (Database per Service pattern)
 
 ```bash
-cd C:\Users\Admin\Desktop\Microservice-Econmmerce\src\services\identity\src\IdentityService.Api
-
+# Update connection string trong appsettings.json thành Database=identitydb
+# Sau đó chạy migration
+cd src/services/identity/src/IdentityService.Api
 dotnet ef migrations add InitialCreate --output-dir ../IdentityService.Infrastructure/Persistence/Migrations
+dotnet ef database update
 ```
 
-### Bước 3.6.3: Verify project build
+> **Giải thích:**
+> - **dotnet ef migrations add**: Tạo migration từ DbContext changes
+> - **dotnet ef database update**: Apply migration vào database, tạo tables
+
+---
+
+## Bước 3.19: Build và Test
 
 ```bash
-cd C:\Users\Admin\Desktop\Microservice-Econmmerce
 dotnet build src/services/identity/src/IdentityService.Api/IdentityService.Api.csproj
 ```
+
+> **Giải thích:**
+> - Build để kiểm tra code compile không có lỗi
+
+```bash
+# Chạy service
+cd src/services/identity/src/IdentityService.Api
+dotnet run
+```
+
+> **Giải thích:**
+> - Service sẽ chạy ở port 5001 (hoặc random available port)
 
 ---
 
 ## ✅ CHECKLIST GIAI ĐOẠN 3
 
-| Task | Status | Ghi chú |
-|------|--------|---------|
-| 3.1.1 | ⬜ | Tạo Domain project |
-| 3.1.2 | ⬜ | Tạo Application project |
-| 3.1.3 | ⬜ | Tạo Infrastructure project |
-| 3.1.4 | ⬜ | Tạo Api project |
-| 3.1.5 | ⬜ | Add project references |
-| 3.2.1 | ⬜ | Thêm packages vào Domain |
-| 3.2.2 | ⬜ | Tạo User entity |
-| 3.2.3 | ⬜ | Tạo UserRole entity |
-| 3.2.4 | ⬜ | Tạo IUserRepository |
-| 3.3.1 | ⬜ | Thêm packages Infrastructure |
-| 3.3.2 | ⬜ | Tạo AppDbContext |
-| 3.3.3 | ⬜ | Tạo UserRepository |
-| 3.3.4 | ⬜ | Tạo DatabaseSeeder |
-| 3.4.1 | ⬜ | Thêm packages Application |
-| 3.4.2 | ⬜ | Tạo DTOs |
-| 3.4.3 | ⬜ | Tạo RegisterCommand |
-| 3.4.4 | ⬜ | Tạo LoginQuery |
-| 3.5.1 | ⬜ | Update Program.cs |
-| 3.5.2 | ⬜ | Tạo appsettings.json |
-| 3.5.3 | ⬜ | Tạo AuthController |
-| 3.5.4 | ⬜ | Tạo Health Check |
-| 3.5.5 | ⬜ | Add Health Checks |
-| 3.6.1 | ⬜ | Install EF tools |
-| 3.6.2 | ⬜ | Tạo migration |
-| 3.6.3 | ⬜ | Build project |
+| Task | Mô tả | Status |
+|------|-------|--------|
+| 3.1 | Tạo Domain project | ⬜ |
+| 3.2 | Tạo Application project | ⬜ |
+| 3.3 | Tạo Infrastructure project | ⬜ |
+| 3.4 | Tạo Api project | ⬜ |
+| 3.5 | Add project references | ⬜ |
+| 3.6 | Update .csproj files | ⬜ |
+| 3.7 | Tạo User entity | ⬜ |
+| 3.8 | Tạo UserRole entity | ⬜ |
+| 3.9 | Tạo IUserRepository | ⬜ |
+| 3.10 | Tạo AppDbContext | ⬜ |
+| 3.11 | Tạo UserRepository | ⬜ |
+| 3.12 | Tạo DTOs | ⬜ |
+| 3.13 | Tạo RegisterCommand | ⬜ |
+| 3.14 | Tạo LoginQuery | ⬜ |
+| 3.15 | Tạo appsettings.json | ⬜ |
+| 3.16 | Tạo Program.cs | ⬜ |
+| 3.17 | Tạo AuthController | ⬜ |
+| 3.18 | Tạo database & migration | ⬜ |
+| 3.19 | Build & Test | ⬜ |
 
 ---
 

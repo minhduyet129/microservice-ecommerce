@@ -1,118 +1,73 @@
-# 🎯 GIAI ĐOẠN 1: FOUNDATION
-## Thời gian: Day 1-3
-## Mục tiêu: Tạo solution structure và infrastructure cơ bản
+# 🎯 GIAI ĐOẠN 1: FOUNDATION (SETUP MÁY & INFRASTRUCTURE)
 
 ---
 
-## 📝 TASK 1.1: TẠO SOLUTION FILE
+## Bước 1.1: Mở Terminal tại thư mục dự án
 
-### Bước 1.1.1: Mở Terminal
-Mở PowerShell hoặc CMD tại thư mục:
-```
-C:\Users\Admin\Desktop\Microservice-Econmmerce
+```bash
+cd C:\Users\Admin\Desktop\Microservice-Econmmerce
 ```
 
-### Bước 1.1.2: Tạo Solution
+> **Giải thích:** Di chuyển đến thư mục gốc của dự án nơi bạn sẽ làm việc suốt quá trình.
+
+---
+
+## Bước 1.2: Tạo Solution file
+
 ```bash
 dotnet new sln -n MicroserviceEcommerce
 ```
 
-### Bước 1.1.3: Verify
-Kiểm tra file `MicroserviceEcommerce.sln` đã được tạo:
-```bash
-ls
-```
-
-**Kết quả mong đợi:** Thấy file `MicroserviceEcommerce.sln`
+> **Giải thích:** 
+> - Solution file là file quản lý tất cả projects trong solution
+> - File tạo ra: `MicroserviceEcommerce.sln`
+> - Khi bạn thêm project mới, sẽ reference vào solution này
 
 ---
 
-## 📝 TASK 1.2: TẠO CẤU TRÚC THƯ MỤC
-
-### Bước 1.2.1: Tạo thư mục gốc
-
-Chạy từng lệnh sau (copy paste vào terminal):
+## Bước 1.3: Tạo cấu trúc thư mục
 
 ```bash
-mkdir src
-mkdir src\buildingblocks
-mkdir src\buildingblocks\Core
-mkdir src\buildingblocks\Core\Abstractions
-mkdir src\buildingblocks\Core\Events
-mkdir src\buildingblocks\Core\Exceptions
-mkdir src\buildingblocks\Core\Extensions
-mkdir src\buildingblocks\Shared
-mkdir src\buildingblocks\Shared\DTOs
-mkdir src\buildingblocks\Shared\Enums
+mkdir -p src/buildingblocks/Core/Abstractions
+mkdir -p src/buildingblocks/Core/Events
+mkdir -p src/buildingblocks/Core/Exceptions
+mkdir -p src/buildingblocks/Core/Extensions
+mkdir -p src/buildingblocks/Shared/DTOs
+mkdir -p src/services/identity/src
+mkdir -p src/services/product/src
+mkdir -p src/services/order/src
+mkdir -p src/services/gateway/src
+mkdir -p infrastructure
+mkdir -p docs/architecture
+mkdir -p scripts
 ```
 
-### Bước 1.2.2: Tạo thư mục services
-
-```bash
-mkdir src\services
-mkdir src\services\identity
-mkdir src\services\identity\src
-mkdir src\services\product
-mkdir src\services\product\src
-mkdir src\services\order
-mkdir src\services\order\src
-mkdir src\services\gateway
-mkdir src\services\gateway\src
-```
-
-### Bước 1.2.3: Tạo thư mục infrastructure và docs
-
-```bash
-mkdir infrastructure
-mkdir infrastructure\databases
-mkdir infrastructure\rabbitmq
-mkdir docs
-mkdir docs\architecture
-mkdir docs\architecture\api-contracts
-mkdir docs\runbook
-mkdir scripts
-```
-
-### Bước 1.2.4: Verify cấu trúc
-```bash
-tree /F src
-```
-
-**Kết quả mong đợi:** Thấy đầy đủ cây thư mục như đã lên kế hoạch
+> **Giải thích:**
+> - `src/buildingblocks/` - Thư mục chứa code dùng chung cho tất cả services (Shared kernel)
+> - `src/services/` - Thư mục chứa các microservices (Identity, Product, Order, Gateway)
+> - `infrastructure/` - Docker configs, database scripts
+> - `docs/` - Tài liệu kiến trúc, API contracts
 
 ---
 
-## 📝 TASK 1.3: TẠO DOCKER COMPOSE
+## Bước 1.4: Tạo file docker-compose.yml
 
-### Bước 1.3.1: Tạo file docker-compose.yml
-
-Tạo file tại: `infrastructure/docker-compose.yml`
+Tạo file `infrastructure/docker-compose.yml`:
 
 ```yaml
-version: '3.8'
-
 services:
-  # SQL Server
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: ecommerce_sqlserver
+  postgres:
+    image: postgres:16-alpine
+    container_name: ecommerce_postgres
     environment:
-      - ACCEPT_EULA=Y
-      - SA_PASSWORD=YourStrong!Passw0rd
-      - MSSQL_PID=Developer
+      - POSTGRES_USER=sa
+      - POSTGRES_PASSWORD=YourStrong!Passw0rd
+      - POSTGRES_DB=postgres
     ports:
-      - "1433:1433"
+      - "5432:5432"
     volumes:
-      - sqlserver_data:/var/opt/mssql
-    healthcheck:
-      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P YourStrong!Passw0rd -Q "SELECT 1" -C
-      interval: 10s
-      timeout: 3s
-      retries: 5
-    networks:
-      - ecommerce-network
+      - postgres_data:/var/lib/postgresql/data
 
-  # RabbitMQ
   rabbitmq:
     image: rabbitmq:3-management
     container_name: ecommerce_rabbitmq
@@ -124,61 +79,46 @@ services:
       - "15672:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
-    healthcheck:
-      test: rabbitmq-diagnostics -q ping
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - ecommerce-network
 
 volumes:
-  sqlserver_data:
+  postgres_data:
   rabbitmq_data:
-
-networks:
-  ecommerce-network:
-    driver: bridge
 ```
 
-### Bước 1.3.2: Chạy Docker Compose
+> **Giải thích:**
+> - **PostgreSQL**: Database cho tất cả services (đã chuyển từ SQL Server sang vì nhẹ hơn, open source)
+> - **RabbitMQ**: Message broker để services giao tiếp với nhau (event-driven)
+> - **Volumes**: Để dữ liệu không bị mất khi stop/start container
+> - **Ports**: 
+>   - 5432: PostgreSQL (để kết nối từ app)
+>   - 5672: RabbitMQ AMQP
+>   - 15672: RabbitMQ Management UI (web)
+
+---
+
+## Bước 1.5: Chạy Docker Compose
 
 ```bash
 cd infrastructure
 docker-compose up -d
 ```
 
-### Bước 1.3.3: Verify services đang chạy
-
-```bash
-docker ps
-```
-
-**Kết quả mong đợi:** Thấy 2 containers: `ecommerce_sqlserver` và `ecommerce_rabbitmq`
-
-### Bước 1.3.4: Kiểm tra RabbitMQ Management UI
-
-Mở trình duyệt: http://localhost:15672
-- Username: `guest`
-- Password: `guest`
+> **Giải thích:**
+> - `-d` = detached mode (chạy background)
+> - Docker sẽ tải images và chạy 2 containers: postgres và rabbitmq
+> - Kiểm tra: `docker ps` để xem containers đang chạy
 
 ---
 
 ## ✅ CHECKLIST GIAI ĐOẠN 1
 
-| Task | Status | Ghi chú |
-|------|--------|---------|
-| 1.1.1 | ⬜ | Mở terminal |
-| 1.1.2 | ⬜ | Tạo solution file |
-| 1.1.3 | ⬜ | Verify file tồn tại |
-| 1.2.1 | ⬜ | Tạo thư mục buildingblocks |
-| 1.2.2 | ⬜ | Tạo thư mục services |
-| 1.2.3 | ⬜ | Tạo thư mục infrastructure/docs |
-| 1.2.4 | ⬜ | Verify cấu trúc |
-| 1.3.1 | ⬜ | Tạo docker-compose.yml |
-| 1.3.2 | ⬜ | Chạy docker-compose |
-| 1.3.3 | ⬜ | Verify docker containers |
-| 1.3.4 | ⬜ | Test RabbitMQ UI |
+| Task | Commands | Status |
+|------|----------|--------|
+| 1.1 | Mở Terminal | ⬜ |
+| 1.2 | Tạo Solution | ⬜ |
+| 1.3 | Tạo Folders | ⬜ |
+| 1.4 | Tạo docker-compose.yml | ⬜ |
+| 1.5 | Chạy Docker | ⬜ |
 
 ---
 

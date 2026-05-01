@@ -1,61 +1,77 @@
-# 🎯 GIAI ĐOẠN 4: API GATEWAY - YARP
-## Thời gian: Day 13-15
-## Mục tiêu: Tạo API Gateway để routing và authentication entry point
+# 🎯 GIAI ĐOẠN 4: API GATEWAY (YARP)
 
 ---
 
-## 📝 TASK 4.1: TẠO GATEWAY SERVICE PROJECT
-
-### Bước 4.1.1: Tạo Gateway project
+## Bước 4.1: Tạo GatewayService.Api Project
 
 ```bash
 cd C:\Users\Admin\Desktop\Microservice-Econmmerce
-
-# Tạo project
 dotnet new webapi -n GatewayService.Api -o src/services/gateway/src/GatewayService.Api
-
-# Add vào solution
 dotnet sln add src/services/gateway/src/GatewayService.Api/GatewayService.Api.csproj
 ```
 
-### Bước 4.1.2: Thêm YARP packages
-
-```bash
-cd C:\Users\Admin\Desktop\Microservice-Econmmerce\src\services\gateway\src\GatewayService.Api
-
-dotnet add package Yarp.ReverseProxy
-dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer
-dotnet add package Serilog.AspNetCore
-```
+> **Giải thích:**
+> - **Web API project**: Entry point của hệ thống
+> - **GatewayService.Api**: Nhận tất cả requests từ clients và route đến các services
 
 ---
 
-## 📝 TASK 4.2: CONFIG YARP ROUTING
+## Bước 4.2: Update .csproj File
 
-### Bước 4.2.1: Update Program.cs
+Mở và update `src/services/gateway/src/GatewayService.Api/GatewayService.Api.csproj`:
 
-Đọc và thay thế `src/services/gateway/src/GatewayService.Api/Program.cs`:
+```xml
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Yarp.ReverseProxy" Version="2.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
+    <PackageReference Include="Serilog.AspNetCore" Version="8.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+  </ItemGroup>
+
+</Project>
+```
+
+> **Giải thích:**
+> - **Yarp.ReverseProxy**: Microsoft reverse proxy cho microservices
+> - **JwtBearer**: Validate JWT tokens tại Gateway (thay vì mỗi service)
+> - **Serilog**: Logging cho Gateway
+> - **Swashbuckle**: Swagger/OpenAPI support
+
+---
+
+## Bước 4.3: Tạo Program.cs
+
+Tạo file `src/services/gateway/src/GatewayService.Api/Program.cs`:
 
 ```csharp
-using GatewayService.Api;
 using Yarp.ReverseProxy.Configuration;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Serilog;
+using System.Text;
+using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Add YARP
 builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
-// Add JWT Authentication
 builder.Services.AddAuthentication("Bearer")
     .AddJwtBearer("Bearer", options =>
     {
-        options.TokenValidationParameters = new()
+        options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
             ValidateAudience = true,
@@ -63,26 +79,24 @@ builder.Services.AddAuthentication("Bearer")
             ValidateIssuerSigningKey = true,
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Secret"]!))
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Secret"]!)
+            )
         };
     });
 
 builder.Services.AddAuthorization();
 
-// Serilog
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
-    .Enrich.FromLogContext()
     .CreateLogger();
 
 builder.Host.UseSerilog();
 
-// Health Checks
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -101,19 +115,24 @@ app.MapHealthChecks("/health");
 app.Run();
 ```
 
-### Bước 4.2.2: Tạo appsettings.json
+> **Giải thích:**
+> - **AddReverseProxy()**: Enable YARP reverse proxy
+> - **LoadFromConfig()**: Load routing config từ appsettings.json
+> - **MapReverseProxy()**: Map YARP endpoint
+> - Gateway sẽ validate JWT trước khi forward requests
+> - **Lưu ý**: Các using statements rất quan trọng - thiếu sẽ gây compile errors
+
+---
+
+## Bước 4.4: Tạo appsettings.json với Routing Config
 
 Tạo file `src/services/gateway/src/GatewayService.Api/appsettings.json`:
 
 ```json
 {
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft.AspNetCore": "Warning"
-    }
-  },
+  "Logging": { "LogLevel": { "Default": "Information", "Microsoft.AspNetCore": "Warning" } },
   "AllowedHosts": "*",
+  "Urls": "http://0.0.0.0:5000",
   "Jwt": {
     "Secret": "ThisIsASecretKeyForJwtTokenGeneration123456",
     "Issuer": "MicroserviceEcommerce",
@@ -123,204 +142,70 @@ Tạo file `src/services/gateway/src/GatewayService.Api/appsettings.json`:
     "Routes": {
       "identity-route": {
         "ClusterId": "identity-cluster",
-        "Match": {
-          "Path": "api/auth/{**catch-all}"
-        },
-        "Transforms": [
-          {
-            "PathRemovePrefix": "/api"
-          }
-        ]
+        "Match": { "Path": "api/auth/{**catch-all}" },
+        "Transforms": [{ "PathRemovePrefix": "/api" }]
       },
       "product-route": {
         "ClusterId": "product-cluster",
-        "Match": {
-          "Path": "products/{**catch-all}"
-        },
-        "Transforms": [
-          {
-            "PathRemovePrefix": "/products"
-          }
-        ]
+        "Match": { "Path": "products/{**catch-all}" },
+        "Transforms": [{ "PathRemovePrefix": "/products" }]
       },
       "order-route": {
         "ClusterId": "order-cluster",
-        "Match": {
-          "Path": "orders/{**catch-all}"
-        },
-        "Transforms": [
-          {
-            "PathRemovePrefix": "/orders"
-          }
-        ]
+        "Match": { "Path": "orders/{**catch-all}" },
+        "Transforms": [{ "PathRemovePrefix": "/orders" }]
       }
     },
     "Clusters": {
       "identity-cluster": {
-        "Destinations": {
-          "identity-service": {
-            "Address": "http://host.docker.internal:5001"
-          }
-        }
+        "Destinations": { "identity-service": { "Address": "http://host.docker.internal:5001" } }
       },
       "product-cluster": {
-        "Destinations": {
-          "product-service": {
-            "Address": "http://host.docker.internal:5002"
-          }
-        }
+        "Destinations": { "product-service": { "Address": "http://host.docker.internal:5002" } }
       },
       "order-cluster": {
-        "Destinations": {
-          "order-service": {
-            "Address": "http://host.docker.internal:5003"
-          }
-        }
+        "Destinations": { "order-service": { "Address": "http://host.docker.internal:5003" } }
       }
     }
   },
-  "Serilog": {
-    "MinimumLevel": {
-      "Default": "Information",
-      "Override": {
-        "Microsoft": "Warning",
-        "System": "Warning"
-      }
-    },
-    "WriteTo": [
-      { "Name": "Console" }
-    ]
-  }
+  "Serilog": { "MinimumLevel": { "Default": "Information" }, "WriteTo": [{ "Name": "Console" }] }
 }
 ```
 
-**Lưu ý:** `host.docker.internal` là DNS name để truy cập host machine từ container. Nếu chạy local không dùng Docker, thay bằng `localhost`.
+> **Giải thích:**
+> - **Routes**: Map incoming URLs đến backend services
+> - **{**catch-all}**: Wildcard - match tất cả sub-paths
+> - **Transforms**: Remove path prefix trước khi forward
+> - **Clusters**: Backend service groups
+> - **host.docker.internal**: DNS để truy cập host từ container (dùng localhost nếu chạy local)
 
 ---
 
-## 📝 TASK 4.3: UPDATE IDENTITY SERVICE CONFIGURE
-
-### Bước 4.3.1: Cập nhật IdentityService.Api Program.cs để chạy port 5001
+## Bước 4.5: Build Gateway
 
 ```bash
-# Mở file src/services/identity/src/IdentityService.Api/Properties/launchSettings.json
-# Hoặc update appsettings.json
+dotnet build src/services/gateway/src/GatewayService.Api/GatewayService.Api.csproj
 ```
 
-Thêm vào `src/services/identity/src/IdentityService.Api/appsettings.json`:
-
-```json
-{
-  "Urls": "http://0.0.0.0:5001"
-}
-```
-
----
-
-## 📝 TASK 4.4: TEST ROUTING
-
-### Bước 4.4.1: Update docker-compose
-
-Cập nhật `infrastructure/docker-compose.yml` thêm các services:
-
-```yaml
-version: '3.8'
-
-services:
-  # SQL Server
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: ecommerce_sqlserver
-    environment:
-      - ACCEPT_EULA=Y
-      - SA_PASSWORD=YourStrong!Passw0rd
-      - MSSQL_PID=Developer
-    ports:
-      - "1433:1433"
-    volumes:
-      - sqlserver_data:/var/opt/mssql
-    networks:
-      - ecommerce-network
-
-  # RabbitMQ
-  rabbitmq:
-    image: rabbitmq:3-management
-    container_name: ecommerce_rabbitmq
-    environment:
-      - RABBITMQ_DEFAULT_USER=guest
-      - RABBITMQ_DEFAULT_PASS=guest
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    networks:
-      - ecommerce-network
-
-  # Identity Service
-  identity-service:
-    build:
-      context: ../..
-      dockerfile: src/services/identity/src/IdentityService.Api/Dockerfile
-    container_name: ecommerce_identity
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=IdentityDb;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True
-      - Jwt__Secret=ThisIsASecretKeyForJwtTokenGeneration123456
-      - Jwt__Issuer=MicroserviceEcommerce
-      - Jwt__Audience=MicroserviceEcommerce
-    ports:
-      - "5001:80"
-    depends_on:
-      sqlserver:
-        condition: service_healthy
-    networks:
-      - ecommerce-network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-
-  # Gateway Service
-  gateway-service:
-    build:
-      context: ../..
-      dockerfile: src/services/gateway/src/GatewayService.Api/Dockerfile
-    container_name: ecommerce_gateway
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-    ports:
-      - "5000:80"
-    depends_on:
-      - identity-service
-    networks:
-      - ecommerce-network
-
-volumes:
-  sqlserver_data:
-  rabbitmq_data:
-
-networks:
-  ecommerce-network:
-    driver: bridge
-```
+> **Giải thích:**
+> - Build để kiểm tra code compile không có lỗi
 
 ---
 
 ## ✅ CHECKLIST GIAI ĐOẠN 4
 
-| Task | Status | Ghi chú |
-|------|--------|---------|
-| 4.1.1 | ⬜ | Tạo Gateway project |
-| 4.1.2 | ⬜ | Add YARP packages |
-| 4.2.1 | ⬜ | Update Program.cs |
-| 4.2.2 | ⬜ | Tạo appsettings.json với routes |
-| 4.3.1 | ⬜ | Config Identity port 5001 |
-| 4.4.1 | ⬜ | Update docker-compose |
+| Task | Mô tả | Status |
+|------|-------|--------|
+| 4.1 | Tạo Gateway project | ⬜ |
+| 4.2 | Update .csproj | ⬜ |
+| 4.3 | Tạo Program.cs | ⬜ |
+| 4.4 | Tạo appsettings.json | ⬜ |
+| 4.5 | Build | ⬜ |
 
 ---
 
 ## ❓ KHI HOÀN THÀNH
 
-Khi tất cả tasks hoàn thành, reply:
-> **"Done Phase 4"**
+Reply: **"Done Phase 4"**
 
-Tôi sẽ hướng dẫn tiếp **Giai đoạn 5: ProductService**
+Tôi sẽ hướng dẫn tiếp **Giai đoạn 5: Product Service**

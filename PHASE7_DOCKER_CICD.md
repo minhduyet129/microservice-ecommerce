@@ -1,14 +1,10 @@
-# 🎯 GIAI ĐOẠN 7: DOCKERIZATION & CI/CD
-## Thời gian: Day 29-32
-## Mục tiêu: Tạo Dockerfiles và CI/CD pipeline
+# 🎯 GIAI ĐOẠN 7: DOCKER + CI/CD
 
 ---
 
-## 📝 TASK 7.1: TẠO DOCKERFILES CHO TỪNG SERVICE
+## Bước 7.1: Tạo Dockerfiles cho từng Service
 
-### Bước 7.1.1: Tạo Dockerfile cho IdentityService
-
-Tạo file `src/services/identity/src/IdentityService.Api/Dockerfile`:
+**IdentityService.Api/Dockerfile:**
 
 ```dockerfile
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
@@ -26,7 +22,6 @@ COPY ["src/buildingblocks/Core/BuildingBlocks.Core.csproj", "src/buildingblocks/
 COPY ["src/buildingblocks/Shared/BuildingBlocks.Shared.csproj", "src/buildingblocks/Shared/"]
 
 RUN dotnet restore src/services/identity/src/IdentityService.Api/IdentityService.Api.csproj
-
 COPY . .
 WORKDIR /src/src/services/identity/src/IdentityService.Api
 RUN dotnet build -c Release -o /app/build
@@ -40,15 +35,17 @@ COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "IdentityService.Api.dll"]
 ```
 
-### Bước 7.1.2: Tạo Dockerfile cho ProductService
+> **Giải thích:**
+> - **Multi-stage build**: Build trong SDK image, run trong ASP.NET Core runtime image
+> - Giảm size của final image đáng kể
+> - Build/release separation cho security
 
-Tạo file `src/services/product/src/ProductService.Api/Dockerfile`:
+**ProductService.Api/Dockerfile:**
 
 ```dockerfile
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
 EXPOSE 80
-EXPOSE 5002
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
@@ -62,7 +59,6 @@ COPY ["src/buildingblocks/Core/BuildingBlocks.Core.csproj", "src/buildingblocks/
 COPY ["src/buildingblocks/Shared/BuildingBlocks.Shared.csproj", "src/buildingblocks/Shared/"]
 
 RUN dotnet restore src/services/product/src/ProductService.Api/ProductService.Api.csproj
-
 COPY . .
 WORKDIR /src/src/services/product/src/ProductService.Api
 RUN dotnet build -c Release -o /app/build
@@ -76,9 +72,11 @@ COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "ProductService.Api.dll"]
 ```
 
-### Bước 7.1.3: Tạo Dockerfile cho OrderService
+> **Giải thích:**
+> - Tương tự Identity nhưng với Product service
+> - Cần include gRPC project
 
-Tạo file `src/services/order/src/OrderService.Api/Dockerfile`:
+**OrderService.Api/Dockerfile:**
 
 ```dockerfile
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
@@ -97,7 +95,6 @@ COPY ["src/buildingblocks/Core/BuildingBlocks.Core.csproj", "src/buildingblocks/
 COPY ["src/buildingblocks/Shared/BuildingBlocks.Shared.csproj", "src/buildingblocks/Shared/"]
 
 RUN dotnet restore src/services/order/src/OrderService.Api/OrderService.Api.csproj
-
 COPY . .
 WORKDIR /src/src/services/order/src/OrderService.Api
 RUN dotnet build -c Release -o /app/build
@@ -111,9 +108,7 @@ COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "OrderService.Api.dll"]
 ```
 
-### Bước 7.1.4: Tạo Dockerfile cho GatewayService
-
-Tạo file `src/services/gateway/src/GatewayService.Api/Dockerfile`:
+**GatewayService.Api/Dockerfile:**
 
 ```dockerfile
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
@@ -128,7 +123,6 @@ COPY ["src/buildingblocks/Core/BuildingBlocks.Core.csproj", "src/buildingblocks/
 COPY ["src/buildingblocks/Shared/BuildingBlocks.Shared.csproj", "src/buildingblocks/Shared/"]
 
 RUN dotnet restore src/services/gateway/src/GatewayService.Api/GatewayService.Api.csproj
-
 COPY . .
 WORKDIR /src/src/services/gateway/src/GatewayService.Api
 RUN dotnet build -c Release -o /app/build
@@ -142,37 +136,29 @@ COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "GatewayService.Api.dll"]
 ```
 
+> **Giải thích:**
+> - Gateway nhẹ nhất vì ít dependencies
+
 ---
 
-## 📝 TASK 7.2: UPDATE DOCKER COMPOSE
+## Bước 7.2: Cập nhật docker-compose.yml
 
-### Bước 7.2.1: Tạo docker-compose.yml đầy đủ
-
-Cập nhật file `infrastructure/docker-compose.yml`:
+Mở và cập nhật `infrastructure/docker-compose.yml`:
 
 ```yaml
-version: '3.8'
-
 services:
-  # SQL Server
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: ecommerce_sqlserver
+  # PostgreSQL
+  postgres:
+    image: postgres:16-alpine
+    container_name: ecommerce_postgres
     environment:
-      - ACCEPT_EULA=Y
-      - SA_PASSWORD=YourStrong!Passw0rd
-      - MSSQL_PID=Developer
+      - POSTGRES_USER=sa
+      - POSTGRES_PASSWORD=YourStrong!Passw0rd
+      - POSTGRES_DB=postgres
     ports:
-      - "1433:1433"
+      - "5432:5432"
     volumes:
-      - sqlserver_data:/var/opt/mssql
-    networks:
-      - ecommerce-network
-    healthcheck:
-      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P YourStrong!Passw0rd -Q "SELECT 1" -C
-      interval: 10s
-      timeout: 3s
-      retries: 5
+      - postgres_data:/var/lib/postgresql/data
 
   # RabbitMQ
   rabbitmq:
@@ -186,8 +172,6 @@ services:
       - "15672:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
-    networks:
-      - ecommerce-network
 
   # Identity Service
   identity-service:
@@ -197,17 +181,15 @@ services:
     container_name: ecommerce_identity
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=IdentityDb;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True
+      - ConnectionStrings__DefaultConnection=Server=postgres,5432;Database=identitydb;User Id=sa;Password=YourStrong!Passw0rd
       - Jwt__Secret=ThisIsASecretKeyForJwtTokenGeneration123456
       - Jwt__Issuer=MicroserviceEcommerce
       - Jwt__Audience=MicroserviceEcommerce
     ports:
       - "5001:80"
     depends_on:
-      sqlserver:
+      postgres:
         condition: service_healthy
-    networks:
-      - ecommerce-network
 
   # Product Service
   product-service:
@@ -217,14 +199,12 @@ services:
     container_name: ecommerce_product
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=ProductDb;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True
+      - ConnectionStrings__DefaultConnection=Server=postgres,5432;Database=productdb;User Id=sa;Password=YourStrong!Passw0rd
     ports:
       - "5002:80"
     depends_on:
-      sqlserver:
+      postgres:
         condition: service_healthy
-    networks:
-      - ecommerce-network
 
   # Order Service
   order-service:
@@ -234,7 +214,7 @@ services:
     container_name: ecommerce_order
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=OrderDb;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True
+      - ConnectionStrings__DefaultConnection=Server=postgres,5432;Database=orderdb;User Id=sa;Password=YourStrong!Passw0rd
       - Jwt__Secret=ThisIsASecretKeyForJwtTokenGeneration123456
       - Jwt__Issuer=MicroserviceEcommerce
       - Jwt__Audience=MicroserviceEcommerce
@@ -245,14 +225,10 @@ services:
     ports:
       - "5003:80"
     depends_on:
-      sqlserver:
+      postgres:
         condition: service_healthy
       rabbitmq:
         condition: service_started
-      product-service:
-        condition: service_started
-    networks:
-      - ecommerce-network
 
   # Gateway Service
   gateway-service:
@@ -265,43 +241,38 @@ services:
       - Jwt__Secret=ThisIsASecretKeyForJwtTokenGeneration123456
       - Jwt__Issuer=MicroserviceEcommerce
       - Jwt__Audience=MicroserviceEcommerce
-      - ReverseProxy__Clusters__identityCluster__Destinations__identityService__Address=http://identity-service:80
-      - ReverseProxy__Clusters__productCluster__Destinations__productService__Address=http://product-service:80
-      - ReverseProxy__Clusters__orderCluster__Destinations__orderService__Address=http://order-service:80
     ports:
       - "5000:80"
     depends_on:
       - identity-service
       - product-service
       - order-service
-    networks:
-      - ecommerce-network
 
 volumes:
-  sqlserver_data:
+  postgres_data:
   rabbitmq_data:
-
-networks:
-  ecommerce-network:
-    driver: bridge
 ```
+
+> **Giải thích:**
+> - **build context**: Build từ root của project
+> - **depends_on**: Services khởi động theo thứ tự
+> - **Service names**: Dùng làm DNS trong Docker network (postgres, rabbitmq, etc.)
+> - **Environment variables**: Override appsettings.json values
 
 ---
 
-## 📝 TASK 7.3: TẠO GITHUB ACTIONS WORKFLOW
+## Bước 7.3: Tạo GitHub Actions Workflow
 
-### Bước 7.3.1: Tạo workflow directory
+Tạo thư mục `.github/workflows` và file `ci.yml`:
 
 ```bash
 mkdir -p .github/workflows
 ```
 
-### Bước 7.3.2: Tạo CI workflow
-
-Tạo file `.github/workflows/ci.yml`:
+**.github/workflows/ci.yml:**
 
 ```yaml
-name: CI Build
+name: CI Build and Test
 
 on:
   push:
@@ -311,15 +282,13 @@ on:
 
 env:
   DOTNET_VERSION: '8.0.x'
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout
+    - name: Checkout code
       uses: actions/checkout@v4
 
     - name: Setup .NET
@@ -335,11 +304,29 @@ jobs:
 
     - name: Run tests
       run: dotnet test --no-build --verbosity normal
+```
 
-  build-containers:
-    needs: build
+**.github/workflows/docker.yml:**
+
+```yaml
+name: Docker Build and Push
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
     
     steps:
     - name: Checkout
@@ -355,6 +342,16 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=sha
+          type=semver,pattern={{version}}
+
     - name: Build and push Identity Service
       uses: docker/build-push-action@v5
       with:
@@ -362,6 +359,7 @@ jobs:
         file: src/services/identity/src/IdentityService.Api/Dockerfile
         push: true
         tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/identity-service:${{ github.sha }}
+        labels: ${{ steps.meta.outputs.labels }}
 
     - name: Build and push Product Service
       uses: docker/build-push-action@v5
@@ -370,6 +368,7 @@ jobs:
         file: src/services/product/src/ProductService.Api/Dockerfile
         push: true
         tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/product-service:${{ github.sha }}
+        labels: ${{ steps.meta.outputs.labels }}
 
     - name: Build and push Order Service
       uses: docker/build-push-action@v5
@@ -378,6 +377,7 @@ jobs:
         file: src/services/order/src/OrderService.Api/Dockerfile
         push: true
         tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/order-service:${{ github.sha }}
+        labels: ${{ steps.meta.outputs.labels }}
 
     - name: Build and push Gateway Service
       uses: docker/build-push-action@v5
@@ -386,85 +386,115 @@ jobs:
         file: src/services/gateway/src/GatewayService.Api/Dockerfile
         push: true
         tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/gateway-service:${{ github.sha }}
+        labels: ${{ steps.meta.outputs.labels }}
 ```
+
+> **Giải thích:**
+> - **ci.yml**: Chạy mỗi khi có push/PR - build + test code
+> - **docker.yml**: Chạy khi push lên main - build + push Docker images
+> - **ghcr.io**: GitHub Container Registry - lưu images free cho public repos
 
 ---
 
-## 📝 TASK 7.4: TEST FULL STACK LOCAL
-
-### Bước 7.4.1: Build all Docker images
+## Bước 7.4: Build và Test Docker Compose
 
 ```bash
-cd C:\Users\Admin\Desktop\Microservice-Econmmerce\infrastructure
-docker-compose build
+cd infrastructure
+docker-compose up -d --build
 ```
 
-### Bước 7.4.2: Run all services
+> **Giải thích:**
+> - Build tất cả images và chạy containers
+> - Dùng `--build` để rebuild nếu đã có code changes
 
 ```bash
-docker-compose up -d
-```
-
-### Bước 7.4.3: Verify services
-
-```bash
+# Kiểm tra containers đang chạy
 docker ps
+```
+
+> **Giải thích:**
+> - Xem tất cả containers đang chạy
+
+```bash
+# Kiểm tra logs của một service
+docker logs ecommerce_identity
+```
+
+> **Giải thích:**
+> - Xem logs để debug nếu có vấn đề
+
+```bash
+# Test API qua Gateway
 curl http://localhost:5000/health
 curl http://localhost:5001/health
 curl http://localhost:5002/health
 curl http://localhost:5003/health
 ```
 
-### Bước 7.4.4: Test API flow
-
-1. Register: `POST http://localhost:5000/api/auth/register`
-2. Login: `POST http://localhost:5000/api/auth/login`
-3. Get products: `GET http://localhost:5000/products/api/products`
-4. Create order: `POST http://localhost:5000/orders/api/orders` (with JWT)
+> **Giải thích:**
+> - Test health endpoints của tất cả services
 
 ---
 
 ## ✅ CHECKLIST GIAI ĐOẠN 7
 
-| Task | Status | Ghi chú |
-|------|--------|---------|
-| 7.1.1 | ⬜ | Tạo Dockerfile IdentityService |
-| 7.1.2 | ⬜ | Tạo Dockerfile ProductService |
-| 7.1.3 | ⬜ | Tạo Dockerfile OrderService |
-| 7.1.4 | ⬜ | Tạo Dockerfile GatewayService |
-| 7.2.1 | ⬜ | Update docker-compose.yml |
-| 7.3.1 | ⬜ | Tạo workflow directory |
-| 7.3.2 | ⬜ | Tạo CI workflow |
-| 7.4.1 | ⬜ | Build Docker images |
-| 7.4.2 | ⬜ | Run all services |
-| 7.4.3 | ⬜ | Verify services |
-| 7.4.4 | ⬜ | Test API flow |
+| Task | Mô tả | Status |
+|------|-------|--------|
+| 7.1 | Tạo Dockerfiles cho 4 services | ⬜ |
+| 7.2 | Cập nhật docker-compose.yml | ⬜ |
+| 7.3 | Tạo GitHub Actions workflows | ⬜ |
+| 7.4 | Build và test Docker Compose | ⬜ |
 
 ---
 
 ## 🎉 HOÀN THÀNH!
 
-Bạn đã triển khai xong hệ thống Microservice Ecommerce đầy đủ:
+Bạn đã triển khai xong hệ thống Microservice Ecommerce hoàn chỉnh!
 
-- ✅ IdentityService - Authentication & JWT
-- ✅ ProductService - Product CRUD + gRPC
-- ✅ OrderService - Order + Saga + RabbitMQ + Polly
-- ✅ GatewayService - YARP routing
-- ✅ Docker Compose - Full stack local
-- ✅ CI/CD - GitHub Actions
+### Kiến trúc tổng quan:
 
-### 📚 TIẾP THEO ĐỀ XUẤT:
+```
+                    ┌──────────────┐
+                    │   Gateway    │ :5000
+                    │   (YARP)     │
+                    └──────┬───────┘
+                           │
+        ┌──────────────────┼──────────────────┐
+        │                  │                  │
+   ┌────▼────┐      ┌────▼─────┐      ┌────▼──────┐
+   │Identity │      │ Product  │      │   Order   │
+   │ :5001   │      │  :5002   │      │   :5003    │
+   └────┬────┘      └────┬──────┘      └────┬──────┘
+        │               │                  │
+        ▼               ▼                  ▼
+   ┌─────────┐   ┌───────────┐   ┌─────────────┐
+   │  PostgreSQL  │   │  PostgreSQL  │   │  PostgreSQL  │
+   │  (identitydb)│   │  (productdb) │   │  (orderdb)   │
+   └─────────┘   └───────────┘   └─────────────┘
+                                              
+                                        ┌─────────────┐
+                                        │  RabbitMQ   │
+                                        └─────────────┘
+```
 
-1. **Unit Tests** - Viết tests cho từng service
-2. **Distributed Tracing** - Thêm Jaeger/Zipkin
-3. **ELK Stack** - Centralized logging với Elasticsearch
-4. **Kubernetes** - Deploy lên K8s với Helm charts
+### Các components:
+
+| Component | Technology |
+|-----------|------------|
+| API Gateway | YARP |
+| Authentication | JWT + BCrypt |
+| Database | PostgreSQL |
+| Message Queue | RabbitMQ |
+| Logging | Serilog |
+| Service Communication | gRPC |
+| CI/CD | GitHub Actions |
+| Container | Docker + Docker Compose |
 
 ---
 
 ## ❓ CẦN HỖ TRỢ
 
-Nếu gặp vấn đề ở bất kỳ task nào, hãy reply:
-> **"Need help: [task cụ thể]"**
+Nếu gặp vấn đề ở bất kỳ bước nào, hãy reply:
+> **"Need help: [vấn đề cụ thể]"**
 
-Tôi sẽ hỗ trợ chi tiết.
+Chúc bạn thành công! 🚀

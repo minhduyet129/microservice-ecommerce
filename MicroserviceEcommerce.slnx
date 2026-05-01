@@ -7,4 +7,16 @@
   <Folder Name="/src/buildingblocks/Shared/">
     <Project Path="src/buildingblocks/Shared/BuildingBlocks.Shared.csproj" />
   </Folder>
+  <Folder Name="/src/services/" />
+  <Folder Name="/src/services/gateway/" />
+  <Folder Name="/src/services/gateway/src/">
+    <Project Path="src/services/gateway/src/GatewayService.Api/GatewayService.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/services/identity/" />
+  <Folder Name="/src/services/identity/src/">
+    <Project Path="src/services/identity/src/IdentityService.Api/IdentityService.Api.csproj" />
+    <Project Path="src/services/identity/src/IdentityService.Application/IdentityService.Application.csproj" />
+    <Project Path="src/services/identity/src/IdentityService.Domain/IdentityService.Domain.csproj" />
+    <Project Path="src/services/identity/src/IdentityService.Infrastructure/IdentityService.Infrastructure.csproj" />
+  </Folder>
 </Solution>
