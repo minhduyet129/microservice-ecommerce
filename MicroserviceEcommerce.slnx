@@ -19,4 +19,12 @@
     <Project Path="src/services/identity/src/IdentityService.Domain/IdentityService.Domain.csproj" />
     <Project Path="src/services/identity/src/IdentityService.Infrastructure/IdentityService.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/src/services/product/" />
+  <Folder Name="/src/services/product/src/">
+    <Project Path="src/services/product/src/ProductService.Api/ProductService.Api.csproj" />
+    <Project Path="src/services/product/src/ProductService.Application/ProductService.Application.csproj" />
+    <Project Path="src/services/product/src/ProductService.Domain/ProductService.Domain.csproj" />
+    <Project Path="src/services/product/src/ProductService.gRPC/ProductService.gRPC.csproj" />
+    <Project Path="src/services/product/src/ProductService.Infrastructure/ProductService.Infrastructure.csproj" />
+  </Folder>
 </Solution>

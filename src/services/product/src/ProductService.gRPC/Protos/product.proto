@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+option csharp_namespace = "ProductService.gRPC";
+
+package ProductService;
+
+service ProductGrpc {
+  rpc GetProduct (ProductRequest) returns (ProductResponse);
+  rpc CheckStock (StockRequest) returns (StockResponse);
+  rpc ReduceStock (StockReductionRequest) returns (StockResponse);
+}
+
+message ProductRequest { string product_id = 1; }
+
+message ProductResponse {
+  string id = 1; string name = 2; string description = 3;
+  double price = 4; double discount_price = 5;
+  int32 stock_quantity = 6; string sku = 7; bool is_valid = 8;
+}
+
+message StockRequest { string product_id = 1; int32 quantity = 2; }
+message StockReductionRequest { string product_id = 1; int32 quantity = 2; }
+message StockResponse { bool success = 1; string message = 2; }

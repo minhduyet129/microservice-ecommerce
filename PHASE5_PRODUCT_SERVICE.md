@@ -146,6 +146,33 @@ dotnet add src/services/product/src/ProductService.gRPC/ProductService.gRPC.cspr
 </Project>
 ```
 
+**ProductService.gRPC.csproj:**
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- QUAN TRỌNG: Dùng product.proto KHÔNG phải greet.proto -->
+    <Protobuf Include="Protos\product.proto" GrpcServices="Server" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Grpc.AspNetCore" Version="2.57.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ProductService.Domain\ProductService.Domain.csproj" />
+  </ItemGroup>
+</Project>
+```
+
+> **⚠️ Lưu ý quan trọng:**
+> - Template gRPC tạo file `greet.proto` mẫu - PHẢI XÓA
+> - PHẢI dùng `product.proto` trong Protobuf Include
+> - Xóa các file template không dùng: `Services/GreeterService.cs`, `Protos/greet.proto`
+
 **ProductService.Api.csproj:**
 
 ```xml
@@ -153,11 +180,15 @@ dotnet add src/services/product/src/ProductService.gRPC/ProductService.gRPC.cspr
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.0" />
     <PackageReference Include="MediatR" Version="12.2.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="8.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+    <PackageReference Include="AspNetCore.HealthChecks.NpgSql" Version="8.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="8.0.10" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ProductService.Application\ProductService.Application.csproj" />
@@ -173,6 +204,9 @@ dotnet add src/services/product/src/ProductService.gRPC/ProductService.gRPC.cspr
 > - Tất cả dùng net8.0
 > - Infrastructure dùng Npgsql (PostgreSQL)
 > - Api cần reference gRPC project để serve gRPC
+> - **QUAN TRỌNG**: Thêm `ImplicitUsings` để tránh lỗi CS0246 (Task, List, Guid)
+> - Thêm `Swashbuckle.AspNetCore` cho Swagger
+> - Thêm `HealthChecks.NpgSql` và `HealthChecks.EntityFrameworkCore` cho health check
 
 ---
 
@@ -560,6 +594,27 @@ public class ProductGrpcService : ProductGrpc.ProductGrpcBase
 > - PostgreSQL connection string
 > - Port 5002 cho Product Service
 
+**ProductService.gRPC/Program.cs:**
+
+```csharp
+using ProductService.gRPC.Services;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddGrpc();
+
+var app = builder.Build();
+
+app.MapGrpcService<ProductGrpcService>();
+app.MapGet("/", () => "Communication with gRPC endpoints must be made through a gRPC client. To learn how to create a client, visit: https://go.microsoft.com/fwlink/?linkid=2086909");
+
+app.Run();
+```
+
+> **⚠️ Lưu ý quan trọng:**
+> - Template gRPC tạo `GreeterService` mặc định - PHẢI đổi thành `ProductGrpcService`
+> - Nếu dùng chung project với API, cần thêm reference và cấu hình riêng
+
 **ProductService.Api/Program.cs:**
 
 ```csharp
@@ -574,6 +629,7 @@ using FluentValidation.AspNetCore;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using System.Text.Encoding;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -593,7 +649,7 @@ builder.Host.UseSerilog();
 
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 
-builder.Services.AddHealthChecks().AddDbContextCheck<ProductDbContext>("sqlserver");
+builder.Services.AddHealthChecks().AddDbContextCheck<ProductDbContext>("productdb");
 
 var app = builder.Build();
 
@@ -610,6 +666,7 @@ app.Run();
 > **Giải thích:**
 > - **MapGrpcService()**: Enable gRPC endpoint
 > - Kết hợp REST API + gRPC trong cùng service
+> - Đổi health check name từ "sqlserver" thành "productdb"
 
 **ProductService.Api/Controllers/ProductsController.cs:**
 
@@ -701,3 +758,65 @@ dotnet ef database update
 Reply: **"Done Phase 5"**
 
 Tôi sẽ hướng dẫn tiếp **Giai đoạn 6: Order Service**
+
+---
+
+## ⚠️ KHẮC PHỤC LỖI THƯỜNG GẶP
+
+### Lỗi 1: CS0246 - ProductGrpc, ProductRequest, ProductResponse not found
+**Nguyên nhân:** Project đang reference `greet.proto` thay vì `product.proto`
+
+**Cách fix:**
+```xml
+<!-- ProductService.gRPC.csproj - sửa dòng này -->
+<Protobuf Include="Protos\product.proto" GrpcServices="Server" />
+```
+
+### Lỗi 2: CS0246 - Greeter, HelloRequest, HelloReply not found
+**Nguyên nhân:** Còn file template cũ
+
+**Cách fix:**
+```bash
+# Xóa file template không cần thiết
+rm src/services/product/src/ProductService.gRPC/Services/GreeterService.cs
+rm src/services/product/src/ProductService.gRPC/Protos/greet.proto
+```
+
+### Lỗi 3: CS0246 - Task<>, List<>, Guid not found trong Controller
+**Nguyên nhân:** Thiếu `ImplicitUsings` trong project file
+
+**Cách fix:**
+```xml
+<!-- ProductService.Api.csproj -->
+<PropertyGroup>
+  <TargetFramework>net8.0</TargetFramework>
+  <Nullable>enable</Nullable>
+  <ImplicitUsings>enable</ImplicitUsings>
+</PropertyGroup>
+```
+
+### Lỗi 4: CS1061 - AddSwaggerGen, UseSwagger, AddDbContextCheck not found
+**Nguyên nhân:** Thiếu NuGet packages
+
+**Cách fix:**
+```xml
+<!-- ProductService.Api.csproj - thêm các packages -->
+<PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+<PackageReference Include="AspNetCore.HealthChecks.NpgSql" Version="8.0.2" />
+<PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="8.0.10" />
+```
+
+### Lỗi 5: GreeterService not found trong Program.cs
+**Nguyên nhân:** Template dùng GreeterService mặc định
+
+**Cách fix:**
+```csharp
+// ProductService.gRPC/Program.cs - đổi dòng này
+app.MapGrpcService<ProductGrpcService>();  // thay vì GreeterService
+```
+
+### Build command
+```bash
+# Build toàn bộ Product Service
+dotnet build src/services/product/src/ProductService.Api
+```
