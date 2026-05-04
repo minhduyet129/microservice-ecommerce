@@ -25,144 +25,8 @@ dotnet sln add src/services/order/src/OrderService.Application/OrderService.Appl
 ```
 
 > **Giải thích:**
-> - **Application layer**: Chứa CreateOrderCommand, gRPC client để gọi Product Service
-
----
-
-## Bước 6.3: Tạo OrderService.Infrastructure Project
-
-```bash
-dotnet new classlib -n OrderService.Infrastructure -o src/services/order/src/OrderService.Infrastructure
-rm src/services/order/src/OrderService.Infrastructure/Class1.cs
-dotnet sln add src/services/order/src/OrderService.Infrastructure/OrderService.Infrastructure.csproj
-```
-
-> **Giải thích:**
-> - **Infrastructure layer**: Chứa EF Core, MassTransit (RabbitMQ), Polly (circuit breaker)
-
----
-
-## Bước 6.4: Tạo OrderService.Api Project
-
-```bash
-dotnet new webapi -n OrderService.Api -o src/services/order/src/OrderService.Api
-dotnet sln add src/services/order/src/OrderService.Api/OrderService.Api.csproj
-```
-
-> **Giải thích:**
-> - **API layer**: REST endpoints cho Order, JWT authorization
-
----
-
-## Bước 6.5: Add Project References
-
-```bash
-dotnet add src/services/order/src/OrderService.Application/OrderService.Application.csproj reference src/services/order/src/OrderService.Domain/OrderService.Domain.csproj
-dotnet add src/services/order/src/OrderService.Application/OrderService.Application.csproj reference src/buildingblocks/Core/BuildingBlocks.Core.csproj
-dotnet add src/services/order/src/OrderService.Application/OrderService.Application.csproj reference src/buildingblocks/Shared/BuildingBlocks.Shared.csproj
-
-dotnet add src/services/order/src/OrderService.Infrastructure/OrderService.Infrastructure.csproj reference src/services/order/src/OrderService.Domain/OrderService.Domain.csproj
-dotnet add src/services/order/src/OrderService.Infrastructure/OrderService.Infrastructure.csproj reference src/services/order/src/OrderService.Application/OrderService.Application.csproj
-dotnet add src/services/order/src/OrderService.Infrastructure/OrderService.Infrastructure.csproj reference src/services/product/src/ProductService.gRPC/ProductService.gRPC.csproj
-
-dotnet add src/services/order/src/OrderService.Api/OrderService.Api.csproj reference src/services/order/src/OrderService.Application/OrderService.Application.csproj
-dotnet add src/services/order/src/OrderService.Api/OrderService.Api.csproj reference src/services/order/src/OrderService.Infrastructure/OrderService.Infrastructure.csproj
-dotnet add src/services/order/src/OrderService.Api/OrderService.Api.csproj reference src/buildingblocks/Core/BuildingBlocks.Core.csproj
-```
-
-> **Giải thích:**
-> - Infrastructure reference cả Product gRPC (để gọi Product Service)
-> - Api reference Application + Infrastructure
-
----
-
-## Bước 6.6: Update .csproj Files
-
-**OrderService.Domain.csproj:**
-
-```xml
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\..\buildingblocks\Core\BuildingBlocks.Core.csproj" />
-  </ItemGroup>
-</Project>
-```
-
-**OrderService.Application.csproj:**
-
-```xml
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\OrderService.Domain\OrderService.Domain.csproj" />
-    <ProjectReference Include="..\..\..\..\buildingblocks\Shared\BuildingBlocks.Shared.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="FluentValidation" Version="11.9.0" />
-    <PackageReference Include="MediatR" Version="12.2.0" />
-  </ItemGroup>
-</Project>
-```
-
-**OrderService.Infrastructure.csproj:**
-
-```xml
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\OrderService.Domain\OrderService.Domain.csproj" />
-    <ProjectReference Include="..\OrderService.Application\OrderService.Application.csproj" />
-    <ProjectReference Include="..\..\..\..\src\services\product\src\ProductService.gRPC\ProductService.gRPC.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.0" />
-    <PackageReference Include="MassTransit.RabbitMQ" Version="8.0.0" />
-    <PackageReference Include="Polly" Version="8.0.0" />
-    <PackageReference Include="Grpc.Net.Client" Version="2.0.0" />
-  </ItemGroup>
-</Project>
-```
-
-**OrderService.Api.csproj:**
-
-```xml
-<Project Sdk="Microsoft.NET.Sdk.Web">
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.0" />
-    <PackageReference Include="MediatR" Version="12.2.0" />
-    <PackageReference Include="Serilog.AspNetCore" Version="8.0.0" />
-    <PackageReference Include="MassTransit.AspNetCore" Version="8.0.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\OrderService.Application\OrderService.Application.csproj" />
-    <ProjectReference Include="..\OrderService.Infrastructure\OrderService.Infrastructure.csproj" />
-    <ProjectReference Include="..\..\..\..\buildingblocks\Core\BuildingBlocks.Core.csproj" />
-  </ItemGroup>
-</Project>
-```
-
-> **Giải thích:**
-> - **MassTransit**: Message broker abstraction cho RabbitMQ
-> - **Polly**: Retry và Circuit Breaker pattern
-> - **Grpc.Net.Client**: Để gọi Product Service qua gRPC
+> - **Product gRPC reference**: Để gọi Product Service từ Order Service
+> - **ProductService.gRPC.csproj**: Cần dùng `GrpcServices="Both"` để generate cả Server và Client code
 
 ---
 
@@ -222,6 +86,10 @@ public class Order : IAggregateRoot
     private readonly List<IDomainEvent> _domainEvents = new();
     public IReadOnlyList<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
 
+    // QUAN TRỌNG: Implement IAggregateRoot interface
+    public IReadOnlyList<IDomainEvent> GetDomainEvents() => _domainEvents.AsReadOnly();
+    public void AddDomainEvent(IDomainEvent domainEvent) => _domainEvents.Add(domainEvent);
+
     public Guid Id { get; set; }
     public string UserId { get; set; } = string.Empty;
     public string UserEmail { get; set; } = string.Empty;
@@ -261,15 +129,29 @@ public class Order : IAggregateRoot
     public void ClearDomainEvents() => _domainEvents.Clear();
 }
 
-public record OrderCreatedEvent(Guid OrderId, string UserId, decimal TotalAmount) : IDomainEvent;
-public record OrderConfirmedEvent(Guid OrderId) : IDomainEvent;
-public record OrderCancelledEvent(Guid OrderId, string Reason) : IDomainEvent;
+// QUAN TRỌNG: Domain Events PHẢI implement IDomainEvent với OccurredOn
+public record OrderCreatedEvent(Guid OrderId, string UserId, decimal TotalAmount) : IDomainEvent
+{
+    public DateTime OccurredOn => DateTime.UtcNow;
+}
+
+public record OrderConfirmedEvent(Guid OrderId) : IDomainEvent
+{
+    public DateTime OccurredOn => DateTime.UtcNow;
+}
+
+public record OrderCancelledEvent(Guid OrderId, string Reason) : IDomainEvent
+{
+    public DateTime OccurredOn => DateTime.UtcNow;
+}
 ```
 
-> **Giải thích:**
+> **⚠️ Lưu ý quan trọng:**
 > - **Order là Aggregate Root**: Tất cả thay đổi phải qua Order
 > - **Domain Events**: Khi có thay đổi, tạo events để notify services khác (Saga pattern)
 > - **AddItem**: Thêm sản phẩm và tự tính tổng tiền
+> - **GetDomainEvents() + AddDomainEvent()**: PHẢI implement để satisfy IAggregateRoot
+> - **OccurredOn**: Domain events PHẢI có property này để satisfy IDomainEvent
 
 ---
 
@@ -533,7 +415,9 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Ord
 **OrderService.Api/Program.cs:**
 
 ```csharp
-using MassTransit;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 using OrderService.Application.Commands;
 using OrderService.Application.DTOs;
 using OrderService.Application.Services;
@@ -544,7 +428,7 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using ProductService.gRPC;
 
@@ -563,10 +447,11 @@ builder.Services.AddValidatorsFromAssemblyContaining<CreateOrderCommand>();
 
 builder.Services.AddGrpcClient<ProductGrpc.ProductGrpcClient>(options => { options.Address = new Uri(builder.Configuration["GrpcSettings:ProductServiceUrl"]!); });
 
-builder.Services.AddMassTransit(x =>
-{
-    x.UsingRabbitMq((context, cfg) => { cfg.Host(builder.Configuration["RabbitMQ:Host"], "/", h => { h.Username(builder.Configuration["RabbitMQ:Username"]!); h.Password(builder.Configuration["RabbitMQ:Password"]!); }); });
-});
+// MassTransit commented out do NuGet package không có version stable
+// builder.Services.AddMassTransit(x =>
+// {
+//     x.UsingRabbitMq((context, cfg) => { cfg.Host(builder.Configuration["RabbitMQ:Host"], "/", h => { h.Username(builder.Configuration["RabbitMQ:Username"]!); h.Password(builder.Configuration["RabbitMQ:Password"]!); }); });
+// });
 
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IProductGrpcClient, ProductGrpcClient>();
@@ -581,7 +466,7 @@ builder.Services.AddAuthorization();
 Log.Logger = new LoggerConfiguration().ReadFrom.Configuration(builder.Configuration).Enrich.FromLogContext().CreateLogger();
 builder.Host.UseSerilog();
 
-builder.Services.AddHealthChecks().AddDbContextCheck<OrderDbContext>("sqlserver");
+builder.Services.AddHealthChecks().AddDbContextCheck<OrderDbContext>("orderdb");
 
 var app = builder.Build();
 
@@ -597,10 +482,11 @@ app.MapHealthChecks("/health");
 app.Run();
 ```
 
-> **Giải thích:**
+> **⚠️ Lưu ý quan trọng:**
 > - **AddGrpcClient**: Đăng ký gRPC client để gọi Product Service
-> - **AddMassTransit**: Enable RabbitMQ messaging
-> - **JwtBearer**: Validate JWT tokens
+> - **MassTransit**: Commented do NuGet package version không tồn tại
+> - **JwtBearer**: Validate JWT tokens - cần thêm using System.IdentityModel.Tokens.Jwt và System.Text
+> - **Health check name**: Đổi từ "sqlserver" thành "orderdb"
 
 **OrderService.Api/Controllers/OrdersController.cs:**
 
@@ -700,3 +586,88 @@ dotnet ef database update
 Reply: **"Done Phase 6"**
 
 Tôi sẽ hướng dẫn tiếp **Giai đoạn 7: Docker + CI/CD**
+
+---
+
+## ⚠️ KHẮC PHỤC LỖI THƯỜNG GẶP
+
+### Lỗi 1: NU1103 - MassTransit.AspNetCore not found
+**Nguyên nhân:** NuGet không có version stable 8.x (chỉ có prerelease 9.x)
+
+**Cách fix:**
+```xml
+<!-- Comment out trong .csproj -->
+<!-- PackageReference Include="MassTransit.AspNetCore" Version="8.0.0" /-->
+```
+
+### Lỗi 2: NU1605 - Grpc.Net.Client version conflict
+**Nguyên nhân:** Infrastructure dùng Grpc.Net.Client 2.0.0 trong khi ProductService.gRPC dùng 2.57.0
+
+**Cách fix:**
+```xml
+<!-- OrderService.Infrastructure.csproj -->
+<PackageReference Include="Grpc.Net.Client" Version="2.57.0" />
+```
+
+### Lỗi 3: CS0535 - Order not implement IAggregateRoot.GetDomainEvents()
+**Nguyên nhân:** Thiếu method GetDomainEvents() trong Order class
+
+**Cách fix:**
+```csharp
+public IReadOnlyList<IDomainEvent> GetDomainEvents() => _domainEvents.AsReadOnly();
+public void AddDomainEvent(IDomainEvent domainEvent) => _domainEvents.Add(domainEvent);
+```
+
+### Lỗi 4: CS0535 - Domain events not implement IDomainEvent.OccurredOn
+**Nguyên nhân:** Domain events thiếu property OccurredOn
+
+**Cách fix:**
+```csharp
+public record OrderCreatedEvent(Guid OrderId, string UserId, decimal TotalAmount) : IDomainEvent
+{
+    public DateTime OccurredOn => DateTime.UtcNow;
+}
+```
+
+### Lỗi 5: CS0426 - ProductGrpcClient not found
+**Nguyên nhân:** 
+1. ProductService.gRPC chỉ generate Server code (GrpcServices="Server")
+2. Application project không reference ProductService.gRPC
+
+**Cách fix:**
+```xml
+<!-- ProductService.gRPC.csproj -->
+<Protobuf Include="Protos\product.proto" GrpcServices="Both" />
+
+<!-- OrderService.Application.csproj -->
+<ProjectReference Include="..\..\..\product\src\ProductService.gRPC\ProductService.gRPC.csproj" />
+```
+
+### Lỗi 6: CS0246 - Task, List, Guid not found trong Controller
+**Nguyên nhân:** Thiếu ImplicitUsings trong Api project
+
+**Cách fix:**
+```xml
+<!-- OrderService.Api.csproj -->
+<PropertyGroup>
+  <TargetFramework>net8.0</TargetFramework>
+  <Nullable>enable</Nullable>
+  <ImplicitUsings>enable</ImplicitUsings>
+</PropertyGroup>
+```
+
+### Lỗi 7: CS0246 - SymmetricSecurityKey, Encoding not found
+**Nguyên nhân:** Thiếu using statements trong Program.cs
+
+**Cách fix:**
+```csharp
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+```
+
+### Build command
+```bash
+# Build toàn bộ Order Service
+dotnet build src/services/order/src/OrderService.Api
+```

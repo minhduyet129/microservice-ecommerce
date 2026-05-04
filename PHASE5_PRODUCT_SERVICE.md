@@ -157,7 +157,8 @@ dotnet add src/services/product/src/ProductService.gRPC/ProductService.gRPC.cspr
   </PropertyGroup>
   <ItemGroup>
     <!-- QUAN TRỌNG: Dùng product.proto KHÔNG phải greet.proto -->
-    <Protobuf Include="Protos\product.proto" GrpcServices="Server" />
+    <!-- GrpcServices="Both" để generate cả Server và Client code (Order Service cần Client) -->
+    <Protobuf Include="Protos\product.proto" GrpcServices="Both" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Grpc.AspNetCore" Version="2.57.0" />
@@ -172,6 +173,7 @@ dotnet add src/services/product/src/ProductService.gRPC/ProductService.gRPC.cspr
 > - Template gRPC tạo file `greet.proto` mẫu - PHẢI XÓA
 > - PHẢI dùng `product.proto` trong Protobuf Include
 > - Xóa các file template không dùng: `Services/GreeterService.cs`, `Protos/greet.proto`
+> - **GrpcServices="Both"**: QUAN TRỌNG để Order Service có thể generate gRPC Client và gọi Product Service
 
 **ProductService.Api.csproj:**
 

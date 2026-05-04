@@ -19,6 +19,13 @@
     <Project Path="src/services/identity/src/IdentityService.Domain/IdentityService.Domain.csproj" />
     <Project Path="src/services/identity/src/IdentityService.Infrastructure/IdentityService.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/src/services/order/" />
+  <Folder Name="/src/services/order/src/">
+    <Project Path="src/services/order/src/OrderService.Api/OrderService.Api.csproj" />
+    <Project Path="src/services/order/src/OrderService.Application/OrderService.Application.csproj" />
+    <Project Path="src/services/order/src/OrderService.Domain/OrderService.Domain.csproj" />
+    <Project Path="src/services/order/src/OrderService.Infrastructure/OrderService.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/src/services/product/" />
   <Folder Name="/src/services/product/src/">
     <Project Path="src/services/product/src/ProductService.Api/ProductService.Api.csproj" />
