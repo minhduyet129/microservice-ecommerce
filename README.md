@@ -16,7 +16,10 @@
 | Phase 4 | `PHASE4_API_GATEWAY.md` | YARP API Gateway |
 | Phase 5 | `PHASE5_PRODUCT_SERVICE.md` | Product service + gRPC |
 | Phase 6 | `PHASE6_ORDER_SERVICE.md` | Order service + Saga + RabbitMQ + Polly |
+| Phase 7A | `PHASE7A_FIX.md` | Fix Gateway, MassTransit, Polly |
+| Phase 7B | `PHASE7B_FIX.md` | Unit Tests, Serilog, Update README |
 | Phase 7 | `PHASE7_DOCKER_CICD.md` | Docker + CI/CD |
+| Phase 8 | `PHASE8_DOCUMENTATION.md` | C4 Diagrams, API Contracts, Runbook |
 
 ---
 
