@@ -25,18 +25,20 @@ dotnet test --no-build --verbosity normal  # Run tests
    # Repeat for product and order services
    ```
 
-## Service Ports (known inconsistency)
-| Service | launchSettings.json | docker-compose |
-|---------|---------------------|----------------|
-| Identity | 5007 | 5001 |
-| Product | 5002 | 5002 |
-| Order | 5003 | 5003 |
-| Gateway | 5000 | 5000 |
+## Service Ports
+| Service | Type | Port | Protocol |
+|---------|------|------|----------|
+| Gateway | REST API | 5000 | HTTP/HTTPS |
+| Identity | REST API | 5001 | HTTP/HTTPS |
+| Product | REST API | 5002 | HTTP/HTTPS |
+| Order | REST API | 5003 | HTTP/HTTPS |
+| Product | gRPC | 5004 | HTTP/2 |
 
 ## Running Services
 ```bash
 dotnet run --project src/services/identity/src/IdentityService.Api
 dotnet run --project src/services/product/src/ProductService.Api
+dotnet run --project src/services/product/src/ProductService.gRPC
 dotnet run --project src/services/order/src/OrderService.Api
 dotnet run --project src/services/gateway/src/GatewayService.Api
 ```

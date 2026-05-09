@@ -96,7 +96,7 @@ dotnet build
 
 ### Bước 0.5: Start các Services
 
-**Mở 4 terminal riêng (hoặc chạy background):**
+**Mở 5 terminal riêng (hoặc chạy background):**
 
 **Terminal 1 - Identity Service (Port 5001):**
 ```bash
@@ -110,13 +110,19 @@ cd C:\Users\Admin\Desktop\Microservice-Econmmerce
 dotnet run --project src/services/product/src/ProductService.Api
 ```
 
-**Terminal 3 - Order Service (Port 5003):**
+**Terminal 3 - Product gRPC Service (Port 5004):**
+```bash
+cd C:\Users\Admin\Desktop\Microservice-Econmmerce
+dotnet run --project src/services/product/src/ProductService.gRPC
+```
+
+**Terminal 4 - Order Service (Port 5003):**
 ```bash
 cd C:\Users\Admin\Desktop\Microservice-Econmmerce
 dotnet run --project src/services/order/src/OrderService.Api
 ```
 
-**Terminal 4 - Gateway (Port 5000):**
+**Terminal 5 - Gateway (Port 5000):**
 ```bash
 cd C:\Users\Admin\Desktop\Microservice-Econmmerce
 dotnet run --project src/services/gateway/src/GatewayService.Api
@@ -126,7 +132,7 @@ dotnet run --project src/services/gateway/src/GatewayService.Api
 ```bash
 netstat -ano | Select-String "LISTENING" | Select-String "500"
 ```
-**Expected:** 4 ports: 5000, 5001, 5002, 5003
+**Expected:** 5 ports: 5000, 5001, 5002, 5003, 5004
 
 ---
 
@@ -156,10 +162,14 @@ curl http://localhost:5003/api/orders
 |---------|------|-----|
 | Gateway | 5000 | http://localhost:5000 |
 | Identity | 5001 | http://localhost:5001 |
-| Product | 5002 | http://localhost:5002 |
+| Product (REST API) | 5002 | http://localhost:5002 |
 | Order | 5003 | http://localhost:5003 |
+| Product (gRPC) | 5004 | http://localhost:5004 |
 
-**Lưu ý:** Identity Service chạy trên port **5001** (không phải 5007) theo mặc định trong launchSettings.json
+**Lưu ý:**
+- Identity Service chạy trên port **5001** (không phải 5007) theo mặc định trong launchSettings.json
+- Product.gRPC chạy trên port **5004** riêng biệt với REST API (5002)
+- OrderService gọi Product.gRPC qua port **5004**
 
 ---
 
@@ -589,6 +599,9 @@ docker exec ecommerce_postgres psql -U sa -d orderdb -c "\dt"
 
 ### Lỗi: Service không start được (port đã sử dụng)
 ```bash
+# Kiểm tra các ports đang sử dụng
+netstat -ano | Select-String "5000 5001 5002 5003 5004"
+
 # Kill dotnet processes đang chạy
 Get-Process | Where-Object { $_.ProcessName -like "*dotnet*" } | Stop-Process -Force
 
@@ -596,6 +609,17 @@ Get-Process | Where-Object { $_.ProcessName -like "*dotnet*" } | Stop-Process -F
 netstat -ano | Select-String "5002"
 # Tìm PID và kill
 taskkill /PID <PID> /F
+```
+
+### Lỗi: gRPC connection failed khi tạo order
+```bash
+# Kiểm tra Product.gRPC service đang chạy
+curl http://localhost:5004
+
+# Kiểm tra OrderService configuration
+cat src/services/order/src/OrderService.Api/appsettings.json | Select-String "GrpcSettings"
+
+# Expected: ProductServiceUrl should be http://localhost:5004
 ```
 
 ---
@@ -609,7 +633,7 @@ taskkill /PID <PID> /F
 | 0.2 | Tạo 3 databases | ⬜ |
 | 0.3 | Chạy EF Core migrations | ⬜ |
 | 0.4 | Build all services | ⬜ |
-| 0.5 | Start 4 services | ⬜ |
+| 0.5 | Start 5 services (Identity, Product REST, Product gRPC, Order, Gateway) | ⬜ |
 | 0.6 | Verify services health | ⬜ |
 
 ### Test Phase
