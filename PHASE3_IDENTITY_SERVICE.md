@@ -799,24 +799,36 @@ public class AuthController : ControllerBase
 
 ```bash
 # Tạo database trong PostgreSQL
-docker exec -it ecommerce_postgres psql -U sa -d postgres -c "CREATE DATABASE identitydb;"
+docker exec ecommerce_postgres psql -U sa -d postgres -c "CREATE DATABASE identitydb;"
+
+# Build
+dotnet build src/services/identity/src/IdentityService.Api/IdentityService.Api.csproj
 ```
 
 > **Giải thích:**
 > - Tạo database riêng cho Identity service
 > - Mỗi service có database riêng (Database per Service pattern)
 
+> **⚠️ QUAN TRỌNG: DbContext nằm trong Infrastructure, không phải Api**
+
 ```bash
-# Update connection string trong appsettings.json thành Database=identitydb
-# Sau đó chạy migration
-cd src/services/identity/src/IdentityService.Api
-dotnet ef migrations add InitialCreate --output-dir ../IdentityService.Infrastructure/Persistence/Migrations
-dotnet ef database update
+cd C:\Users\Admin\Desktop\Microservice-Econmmerce
+
+# Tạo migration (--project = Infrastructure chứa DbContext, --startup-project = Api chứa connection string)
+dotnet ef migrations add InitialCreate --project src/services/identity/src/IdentityService.Infrastructure --startup-project src/services/identity/src/IdentityService.Api --output-dir Persistence/Migrations
+
+# Apply migration
+dotnet ef database update --project src/services/identity/src/IdentityService.Infrastructure --startup-project src/services/identity/src/IdentityService.Api
+
+# Verify tables đã tạo
+docker exec ecommerce_postgres psql -U sa -d identitydb -c "\dt"
 ```
 
 > **Giải thích:**
-> - **dotnet ef migrations add**: Tạo migration từ DbContext changes
-> - **dotnet ef database update**: Apply migration vào database, tạo tables
+> - DbContext nằm trong `IdentityService.Infrastructure/Persistence/AppDbContext.cs`
+> - Migrations output: `IdentityService.Infrastructure/Persistence/Migrations/`
+> - `--project`: Project chứa DbContext (Infrastructure)
+> - `--startup-project`: Project chứa appsettings.json với connection string (Api)
 
 ---
 

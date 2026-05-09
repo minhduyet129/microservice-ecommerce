@@ -30,6 +30,150 @@ dotnet sln add src/services/order/src/OrderService.Application/OrderService.Appl
 
 ---
 
+## Bước 6.3: Tạo OrderService.Infrastructure Project
+
+```bash
+dotnet new classlib -n OrderService.Infrastructure -o src/services/order/src/OrderService.Infrastructure
+rm src/services/order/src/OrderService.Infrastructure/Class1.cs
+dotnet sln add src/services/order/src/OrderService.Infrastructure/OrderService.Infrastructure.csproj
+```
+
+> **Giải thích:**
+> - **Infrastructure layer**: Chứa EF Core DbContext và repositories
+
+---
+
+## Bước 6.4: Tạo OrderService.Api Project
+
+```bash
+dotnet new webapi -n OrderService.Api -o src/services/order/src/OrderService.Api
+dotnet sln add src/services/order/src/OrderService.Api/OrderService.Api.csproj
+```
+
+> **Giải thích:**
+> - **API layer**: REST API cho order management
+
+---
+
+## Bước 6.5: Add Project References
+
+```bash
+dotnet add src/services/order/src/OrderService.Application/OrderService.Application.csproj reference src/services/order/src/OrderService.Domain/OrderService.Domain.csproj
+dotnet add src/services/order/src/OrderService.Application/OrderService.Application.csproj reference src/buildingblocks/Core/BuildingBlocks.Core.csproj
+dotnet add src/services/order/src/OrderService.Application/OrderService.Application.csproj reference src/services/product/src/ProductService.gRPC/ProductService.gRPC.csproj
+
+dotnet add src/services/order/src/OrderService.Infrastructure/OrderService.Infrastructure.csproj reference src/services/order/src/OrderService.Domain/OrderService.Domain.csproj
+dotnet add src/services/order/src/OrderService.Infrastructure/OrderService.Infrastructure.csproj reference src/services/order/src/OrderService.Application/OrderService.Application.csproj
+dotnet add src/services/order/src/OrderService.Infrastructure/OrderService.Infrastructure.csproj reference src/buildingblocks/Core/BuildingBlocks.Core.csproj
+
+dotnet add src/services/order/src/OrderService.Api/OrderService.Api.csproj reference src/services/order/src/OrderService.Application/OrderService.Application.csproj
+dotnet add src/services/order/src/OrderService.Api/OrderService.Api.csproj reference src/services/order/src/OrderService.Infrastructure/OrderService.Infrastructure.csproj
+```
+
+> **Giải thích:**
+> - Theo Clean Architecture: Api → Application → Domain
+> - Application cần reference ProductService.gRPC để gọi Product Service
+
+---
+
+## Bước 6.6: Update .csproj Files
+
+**OrderService.Domain.csproj:**
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\buildingblocks\Core\BuildingBlocks.Core.csproj" />
+  </ItemGroup>
+</Project>
+```
+
+**OrderService.Application.csproj:**
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\OrderService.Domain\OrderService.Domain.csproj" />
+    <ProjectReference Include="..\..\..\..\buildingblocks\Shared\BuildingBlocks.Shared.csproj" />
+    <ProjectReference Include="..\..\..\product\src\ProductService.gRPC\ProductService.gRPC.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" Version="11.9.0" />
+    <PackageReference Include="MediatR" Version="12.2.0" />
+  </ItemGroup>
+</Project>
+```
+
+**OrderService.Infrastructure.csproj:**
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\OrderService.Domain\OrderService.Domain.csproj" />
+    <ProjectReference Include="..\OrderService.Application\OrderService.Application.csproj" />
+    <ProjectReference Include="..\..\..\..\buildingblocks\Core\BuildingBlocks.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.0" />
+  </ItemGroup>
+</Project>
+```
+
+> **⚠️ QUAN TRỌNG:**
+> - Phải có `Microsoft.EntityFrameworkCore.Design` để chạy `dotnet ef migrations`
+> - Thêm reference đến ProductService.gRPC để dùng gRPC client
+
+**OrderService.Api.csproj:**
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.0" />
+    <PackageReference Include="MediatR" Version="12.2.0" />
+    <PackageReference Include="Serilog.AspNetCore" Version="8.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+    <PackageReference Include="AspNetCore.HealthChecks.NpgSql" Version="8.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="8.0.10" />
+    <PackageReference Include="MassTransit.AspNetCore" Version="8.0.16" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\OrderService.Application\OrderService.Application.csproj" />
+    <ProjectReference Include="..\OrderService.Infrastructure\OrderService.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\..\buildingblocks\Core\BuildingBlocks.Core.csproj" />
+    <ProjectReference Include="..\..\..\..\buildingblocks\Shared\BuildingBlocks.Shared.csproj" />
+  </ItemGroup>
+</Project>
+```
+
+> **Giải thích:**
+> - MassTransit cho message broker (RabbitMQ)
+> - JwtBearer cho authentication
+> - Thêm `ImplicitUsings` để tránh lỗi CS0246
+
+---
+
 ## Bước 6.7: Tạo Domain Entities
 
 **OrderService.Domain/Enums/OrderStatus.cs:**
@@ -549,20 +693,35 @@ public class OrdersController : ControllerBase
 
 ```bash
 # Tạo database
-docker exec -it ecommerce_postgres psql -U sa -d postgres -c "CREATE DATABASE orderdb;"
+docker exec ecommerce_postgres psql -U sa -d postgres -c "CREATE DATABASE orderdb;"
 
 # Build
 dotnet build src/services/order/src/OrderService.Api/OrderService.Api.csproj
-
-# Migration
-cd src/services/order/src/OrderService.Api
-dotnet ef migrations add InitialCreate --output-dir ../OrderService.Infrastructure/Persistence/Migrations
-dotnet ef database update
 ```
 
 > **Giải thích:**
 > - Tạo database riêng cho Order Service
-> - Build và tạo tables
+
+> **⚠️ QUAN TRỌNG: DbContext nằm trong Infrastructure, không phải Api**
+
+```bash
+cd C:\Users\Admin\Desktop\Microservice-Econmmerce
+
+# Tạo migration (--project = Infrastructure chứa DbContext, --startup-project = Api chứa connection string)
+dotnet ef migrations add InitialCreate --project src/services/order/src/OrderService.Infrastructure --startup-project src/services/order/src/OrderService.Api --output-dir Persistence/Migrations
+
+# Apply migration
+dotnet ef database update --project src/services/order/src/OrderService.Infrastructure --startup-project src/services/order/src/OrderService.Api
+
+# Verify tables đã tạo
+docker exec ecommerce_postgres psql -U sa -d orderdb -c "\dt"
+```
+
+> **Giải thích:**
+> - DbContext nằm trong `OrderService.Infrastructure/Persistence/OrderDbContext.cs`
+> - Migrations output: `OrderService.Infrastructure/Persistence/Migrations/`
+> - `--project`: Project chứa DbContext (Infrastructure)
+> - `--startup-project`: Project chứa appsettings.json với connection string (Api)
 
 ---
 

@@ -638,6 +638,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddGrpc();
 
 builder.Services.AddDbContext<ProductDbContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
@@ -718,24 +719,37 @@ public class ProductsController : ControllerBase
 
 ---
 
-## Bước 5.14: Tạo Database và Build
+## Bước 5.14: Tạo Database và Migration
 
 ```bash
 # Tạo database
-docker exec -it ecommerce_postgres psql -U sa -d postgres -c "CREATE DATABASE productdb;"
+docker exec ecommerce_postgres psql -U sa -d postgres -c "CREATE DATABASE productdb;"
 
 # Build
 dotnet build src/services/product/src/ProductService.Api/ProductService.Api.csproj
+```
 
-# Migration
-cd src/services/product/src/ProductService.Api
-dotnet ef migrations add InitialCreate --output-dir ../ProductService.Infrastructure/Persistence/Migrations
-dotnet ef database update
+> **⚠️ QUAN TRỌNG: DbContext nằm trong Infrastructure, không phải Api**
+
+```bash
+cd C:\Users\Admin\Desktop\Microservice-Econmmerce
+
+# Tạo migration
+dotnet ef migrations add InitialCreate --project src/services/product/src/ProductService.Infrastructure --startup-project src/services/product/src/ProductService.Api --output-dir Persistence/Migrations
+
+# Apply migration
+dotnet ef database update --project src/services/product/src/ProductService.Infrastructure --startup-project src/services/product/src/ProductService.Api
+
+# Verify tables đã tạo
+docker exec ecommerce_postgres psql -U sa -d productdb -c "\dt"
 ```
 
 > **Giải thích:**
-> - Tạo database riêng cho Product
-> - Build và chạy migration để tạo tables
+> - DbContext nằm trong `ProductService.Infrastructure/Persistence/ProductDbContext.cs`
+> - Migrations output: `ProductService.Infrastructure/Persistence/Migrations/` (giống IdentityService)
+> - `--project`: Project chứa DbContext (Infrastructure)
+> - `--startup-project`: Project chứa appsettings.json với connection string (Api)
+> - `--output-dir`: Relative từ Infrastructure project folder → `Persistence/Migrations`
 
 ---
 
