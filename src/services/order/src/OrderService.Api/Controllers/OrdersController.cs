@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,7 +21,7 @@ public class OrdersController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<OrderDto>> Create([FromBody] CreateOrderRequest request)
     {
-        var userId = User.FindFirst("sub")?.Value ?? request.UserId;
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? request.UserId;
         var userEmail = User.FindFirst("email")?.Value ?? request.UserEmail;
         var orderWithUser = request with { UserId = userId, UserEmail = userEmail };
         var result = await _mediator.Send(new CreateOrderCommand(orderWithUser));
@@ -38,7 +39,7 @@ public class OrdersController : ControllerBase
     [HttpGet("my-orders")]
     public async Task<ActionResult<List<OrderDto>>> GetMyOrders()
     {
-        var userId = User.FindFirst("sub")?.Value;
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userId)) return Unauthorized();
         var orders = await _orderRepository.GetByUserIdAsync(userId);
         return Ok(orders.Select(o => new OrderDto(o.Id, o.UserId, o.UserEmail, o.Status.ToString(), o.PaymentStatus.ToString(), o.TotalAmount, o.ShippingAddress, o.Items.Select(i => new OrderItemDto(i.ProductId, i.ProductName, i.UnitPrice, i.Quantity)).ToList(), o.CreatedAt)).ToList());

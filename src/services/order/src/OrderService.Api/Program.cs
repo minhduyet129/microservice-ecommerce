@@ -28,7 +28,14 @@ builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Creat
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateOrderCommand>();
 
-builder.Services.AddGrpcClient<ProductGrpc.ProductGrpcClient>(options => { options.Address = new Uri(builder.Configuration["GrpcSettings:ProductServiceUrl"]!); });
+builder.Services.AddGrpcClient<ProductGrpc.ProductGrpcClient>(options => { options.Address = new Uri(builder.Configuration["GrpcSettings:ProductServiceUrl"]!); })
+    .ConfigureChannel(options =>
+    {
+        options.HttpHandler = new SocketsHttpHandler
+        {
+            EnableMultipleHttp2Connections = true
+        };
+    });
 
 // MassTransit commented out due to NuGet package issue
 // builder.Services.AddMassTransit(x =>

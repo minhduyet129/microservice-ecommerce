@@ -177,6 +177,8 @@ curl http://localhost:5003/api/orders
 
 ### STEP 1: Register User (Tạo tài khoản)
 
+**⚠️ LƯU Ý: RegisterRequest yêu cầu FullName, KHÔNG có confirmPassword**
+
 **Bash curl:**
 ```bash
 curl -X POST http://localhost:5001/api/auth/register \
@@ -184,7 +186,8 @@ curl -X POST http://localhost:5001/api/auth/register \
   -d '{
     "email": "testuser@example.com",
     "password": "Password123!",
-    "confirmPassword": "Password123!"
+    "fullName": "Test User",
+    "phoneNumber": "0912345678"
   }'
 ```
 
@@ -284,9 +287,12 @@ curl -X GET http://localhost:5002/api/products
 
 ### STEP 5: Create Order (Tạo đơn hàng - Cần JWT)
 
+**⚠️ LƯU Ý: CreateOrderRequest yêu cầu userId và userEmail**
+
 **Thay thế:**
 - `{YOUR_JWT_TOKEN}` = token đã copy ở Step 2
 - `{PRODUCT_ID}` = product id đã copy ở Step 3
+- `{USER_ID}` = user ID từ JWT token (claim "sub")
 
 **Bash curl:**
 ```bash
@@ -294,16 +300,22 @@ curl -X POST http://localhost:5003/api/orders \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer {YOUR_JWT_TOKEN}" \
   -d '{
+    "userId": "{USER_ID}",
+    "userEmail": "testuser@example.com",
     "shippingAddress": "123 Nguyen Van Linh, District 7, Ho Chi Minh City",
     "shippingPhone": "0912345678",
     "items": [
       {
         "productId": "{PRODUCT_ID}",
+        "productName": "iPhone 15 Pro",
+        "unitPrice": 999.99,
         "quantity": 2
       }
     ]
   }'
 ```
+
+**⚠️ KNOWN BUG: Đã fix - Create Order hoạt động hoàn chỉnh**
 
 **Expected Response (201):**
 ```json
@@ -639,15 +651,15 @@ cat src/services/order/src/OrderService.Api/appsettings.json | Select-String "Gr
 ### Test Phase
 | Step | Test Case | Status |
 |------|-----------|--------|
-| 1 | Register user | ⬜ |
-| 2 | Login & get JWT | ⬜ |
-| 3 | Create product | ⬜ |
-| 4 | Get all products | ⬜ |
-| 5 | Create order | ⬜ |
-| 6 | Get order by ID | ⬜ |
-| 7 | Get my orders | ⬜ |
-| 8 | Test via Gateway | ⬜ |
-| 9 | Error cases | ⬜ |
+| 1 | Register user | ✅ PASS |
+| 2 | Login & get JWT | ✅ PASS |
+| 3 | Create product | ✅ PASS |
+| 4 | Get all products | ✅ PASS |
+| 5 | Create order | ✅ PASS |
+| 6 | Get order by ID | ✅ PASS |
+| 7 | Get my orders | ✅ PASS |
+| 8 | Test via Gateway | ✅ PASS |
+| 9 | Error cases | ✅ PASS |
 
 ---
 
