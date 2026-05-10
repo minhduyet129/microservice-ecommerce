@@ -59,6 +59,98 @@ Mở file `src/services/gateway/src/GatewayService.Api/appsettings.json`:
 
 ---
 
+### ⚠️ VẤN ĐỀ THƯỜNG GẶP SAU KHI CẬP NHẬT GATEWAY
+
+#### 🔴 Issue 1: Create Order lỗi 500 - gRPC Communication
+
+**Nguyên nhân:**
+- ProductService.gRPC không có DbContext để truy vấn product từ database
+- Khi OrderService gọi ProductService.gRPC để lấy product info → lỗi 500
+
+**Các file cần sửa:**
+
+1. `src/services/product/src/ProductService.gRPC/ProductService.gRPC.csproj`:
+```xml
+<ProjectReference Include="..\ProductService.Infrastructure\ProductService.Infrastructure.csproj" />
+```
+
+2. `src/services/product/src/ProductService.gRPC/Program.cs`:
+```csharp
+// Thêm sau var app = builder.Build();
+builder.Services.AddDbContext<ProductDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Sử dụng DI trong gRPC Service
+app.MapGrpcService<ProductGrpcService>();
+```
+
+3. `src/services/product/src/ProductService.gRPC/appsettings.json`:
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Port=5432;Database=productdb;Username=sa;Password=YourStrong!Passw0rd"
+  },
+  "Urls": "http://0.0.0.0:5004",
+  "Kestrel": {
+    "Endpoints": {
+      "Grpc": {
+        "Url": "http://localhost:5004",
+        "Protocols": "Http2"
+      }
+    }
+  }
+}
+```
+
+4. `src/services/order/src/OrderService.Api/Program.cs`:
+```csharp
+// Thêm vào phần gRPC client configuration
+builder.Services.AddGrpcClient<ProductGrpc.ProductGrpcClient>(options =>
+{
+    options.Address = new Uri(builder.Configuration["GrpcSettings:ProductServiceUrl"]!);
+});
+
+// Cấu hình gRPC channel cho HTTP/2
+AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
+```
+
+5. `src/services/order/src/OrderService.Api/appsettings.json`:
+```json
+"GrpcSettings": {
+  "ProductServiceUrl": "http://localhost:5004"
+}
+```
+
+---
+
+#### 🔴 Issue 2: Get My Orders lỗi 401 - JWT Claim Mismatch
+
+**Nguyên nhân:**
+- IdentityService tạo JWT với claim `http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier` (ClaimTypes.NameIdentifier)
+- OrderService tìm claim `"sub"` → không tìm thấy → 401 Unauthorized
+
+**File cần sửa:**
+
+`src/services/order/src/OrderService.Api/Controllers/OrdersController.cs`:
+
+```csharp
+// Tìm:
+var userId = User.FindFirst("sub")?.Value;
+
+// Thay thế bằng:
+var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+// Cần thêm using:
+using System.Security.Claims;
+```
+
+> **Giải thích:**
+> - IdentityService dùng `ClaimTypes.NameIdentifier` (standard .NET claim type)
+> - Token JWT chứa claim này thay vì "sub"
+> - OrderService phải dùng cùng claim type để đọc user ID
+
+---
+
 ## Bước 7A-2: Fix MassTransit Version
 
 ### Mục đích:
